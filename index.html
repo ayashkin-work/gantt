@@ -574,47 +574,46 @@
             function hideTooltip() { document.getElementById('tooltip').style.opacity = '0'; }
 
             // Поделиться
-            function shareProject() {
-                const proj = getProject(); if (!proj) { alert('Нет активного проекта'); return; }
-                const data = JSON.stringify(proj);
-                const encoded = btoa(unescape(encodeURIComponent(data)));
-                const url = window.location.origin + window.location.pathname + '#project=' + encoded;
-                navigator.clipboard.writeText(url).then(() => alert('Ссылка скопирована!'));
-            }
-            window.addEventListener('hashchange', importFromHash);
-            function importFromHash() {
-                const hash = window.location.hash;
-                if (hash.startsWith('#project=')) {
-                    const encoded = hash.slice('#project='.length);
-                    try {
-                        const json = decodeURIComponent(escape(atob(encoded)));
-                        const imported = JSON.parse(json);
-                        if (imported.id && imported.groups) {
-                            const exists = state.projects.find(p => p.id === imported.id);
-                            if (exists) Object.assign(exists, imported);
-                            else state.projects.push(imported);
-                            state.activeProjectId = imported.id;
-                            save();
-                            renderAll();
-                            window.location.hash = '';
-                        }
-                    } catch(e) { alert('Некорректная ссылка'); }
-                }
-            }
-            if (window.location.hash.startsWith('#project=')) importFromHash();
+function shareProject() {
+    const proj = getProject();
+    if (!proj) { alert('Нет активного проекта'); return; }
+    const data = JSON.stringify(proj);
+    // Используем безопасный способ кодирования
+    const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(data))));
+    const url = window.location.origin + window.location.pathname + '#project=' + encoded;
+    navigator.clipboard.writeText(url).then(() => alert('Ссылка скопирована!'));
+}
 
-            // Обработчики кнопок
-            document.getElementById('addGroupBtn').addEventListener('click', addGroup);
-            document.getElementById('addTaskBtn').addEventListener('click', showAddTaskModal);
-            document.getElementById('manageStatusesBtn').addEventListener('click', manageStatuses);
-            document.getElementById('shareBtn').addEventListener('click', shareProject);
-            document.getElementById('renameBtn').addEventListener('click', renameProject);
-            document.getElementById('newBtn').addEventListener('click', newProject);
-            document.getElementById('deleteBtn').addEventListener('click', deleteProject);
-
-            window.manageStatuses = manageStatuses;
-            window.showTypeManager = showTypeManager;
-            window.showAddTypeForm = showAddTypeForm;
+// Загрузка проекта из ссылки
+window.addEventListener('hashchange', importFromHash);
+function importFromHash() {
+    const hash = window.location.hash;
+    if (hash.startsWith('#project=')) {
+        const encoded = hash.slice('#project='.length);
+        try {
+            const json = decodeURIComponent(escape(atob(decodeURIComponent(encoded))));
+            const imported = JSON.parse(json);
+            if (imported.id && imported.groups) {
+                const exists = state.projects.find(p => p.id === imported.id);
+                if (exists) Object.assign(exists, imported);
+                else state.projects.push(imported);
+                state.activeProjectId = imported.id;
+                save();
+                renderAll();
+                // Очищаем хеш только после загрузки, чтобы не вызвать повторно
+                window.removeEventListener('hashchange', importFromHash);
+                window.location.hash = '';
+                setTimeout(() => window.addEventListener('hashchange', importFromHash), 100);
+            }
+        } catch(e) {
+            alert('Некорректная ссылка');
+        }
+    }
+}
+// Обрабатываем хеш при первой загрузке
+if (window.location.hash.startsWith('#project=')) {
+    setTimeout(importFromHash, 100); // даём время на инициализацию
+}
 
             // Старт
             load();
