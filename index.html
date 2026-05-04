@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Гант</title>
+    <title>Гант – авторизация и шаринг</title>
     <style>
         :root {
             --blue: #2563eb; --blue-bar: #3b82f6; --green-bar: #10b981;
@@ -11,9 +11,7 @@
         }
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #e8eaed; display: flex; justify-content: center; min-height: 100vh; padding: 16px; }
-        #auth-container, #app-container {
-            background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        }
+        #auth-container, #app-container { background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
         #app-container { width: 100%; max-width: 1440px; display: flex; flex-direction: column; height: 92vh; }
         #auth-container { max-width: 400px; padding: 32px; margin: auto; display: flex; flex-direction: column; gap: 16px; }
         #auth-container h2 { text-align: center; }
@@ -22,10 +20,7 @@
 
         .toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: #fafbfc; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
         .toolbar .brand { font-weight:700; font-size:17px; margin-right:10px; }
-        .btn {
-            padding: 5px 10px; border-radius:5px; border:1px solid #d0d5dd; background:#fff;
-            cursor:pointer; font-size:12px; font-weight:500; white-space:nowrap;
-        }
+        .btn { padding: 5px 10px; border-radius:5px; border:1px solid #d0d5dd; background:#fff; cursor:pointer; font-size:12px; font-weight:500; white-space:nowrap; }
         .btn:hover { background:#f5f6f8; }
         .btn.accent { background:var(--blue); color:#fff; border-color:var(--blue); }
         .btn.danger { color:#dc2626; border-color:#fca5a5; background:#fef2f2; }
@@ -124,14 +119,15 @@
         </div>
     </div>
     <div id="modalContainer"></div>
+
     <script>
         (function() {
+            // ===================== AUTH & STORAGE =====================
             const USERS_KEY = 'gantt_users';
             const SESSION_KEY = 'gantt_session';
             let currentUser = null;
-            let state = { projects: [], activeProjectId: null, customStatuses: [], markerTypes: {} };
+            let state = { projects: [], activeProjectId: null, customStatuses: ['Не начато','В работе','На проверке','Завершено','Просрочено'], markerTypes: {} };
 
-            // ---- Auth helpers ----
             function getUsers() { try { return JSON.parse(localStorage.getItem(USERS_KEY)) || {}; } catch(e) { return {}; } }
             function saveUsers(users) { localStorage.setItem(USERS_KEY, JSON.stringify(users)); }
             function hashPass(p) { return btoa(p); }
@@ -142,111 +138,24 @@
             function saveState() {
                 if (!currentUser) return;
                 const users = getUsers();
-                if (users[currentUser]) {
-                    users[currentUser].data = state;
-                    saveUsers(users);
-                }
+                if (users[currentUser]) { users[currentUser].data = state; saveUsers(users); }
             }
             function loadState() {
                 const users = getUsers();
                 const user = users[currentUser];
-                if (user && user.data && user.data.projects) {
-                    state = user.data;
-                } else {
-                    state = { projects: [], activeProjectId: null, customStatuses: ['Не начато','В работе','На проверке','Завершено','Просрочено'], markerTypes: {} };
-                }
+                if (user && user.data && user.data.projects) { state = user.data; }
+                else { state = { projects: [], activeProjectId: null, customStatuses: ['Не начато','В работе','На проверке','Завершено','Просрочено'], markerTypes: {} }; }
                 if (!state.markerTypes || Object.keys(state.markerTypes).length===0) {
-                    state.markerTypes = {
-                        control: {label:'Контроль', shape:'diamond', color:'#f59e0b'},
-                        delivery: {label:'Сдача', shape:'circle', color:'#ef4444'},
-                        feedback: {label:'Фидбэк', shape:'circle', color:'#fbbf24'}
-                    };
+                    state.markerTypes = { control: {label:'Контроль', shape:'diamond', color:'#f59e0b'}, delivery: {label:'Сдача', shape:'circle', color:'#ef4444'}, feedback: {label:'Фидбэк', shape:'circle', color:'#fbbf24'} };
                 }
                 if (!state.customStatuses || !state.customStatuses.length) state.customStatuses = ['Не начато','В работе','На проверке','Завершено','Просрочено'];
-                if (!state.activeProjectId || !state.projects.find(p=>p.id===state.activeProjectId)) {
-                    state.activeProjectId = state.projects.length ? state.projects[0].id : null;
-                }
+                if (!state.activeProjectId || !state.projects.find(p=>p.id===state.activeProjectId)) state.activeProjectId = state.projects.length ? state.projects[0].id : null;
             }
 
-            function showAuth() {
-                document.getElementById('auth-container').style.display = 'flex';
-                document.getElementById('app-container').style.display = 'none';
-            }
-            function showApp() {
-                document.getElementById('auth-container').style.display = 'none';
-                document.getElementById('app-container').style.display = 'flex';
-                renderAll();
-            }
+            function showAuth() { document.getElementById('auth-container').style.display = 'flex'; document.getElementById('app-container').style.display = 'none'; }
+            function showApp() { document.getElementById('auth-container').style.display = 'none'; document.getElementById('app-container').style.display = 'flex'; renderAll(); }
 
-            // ---- Auth handlers ----
-            document.getElementById('loginBtn').addEventListener('click', () => {
-                const login = document.getElementById('loginInput').value.trim();
-                const pass = document.getElementById('passwordInput').value;
-                if (!login || !pass) { document.getElementById('authError').textContent = 'Введите логин и пароль'; return; }
-                const users = getUsers();
-                if (!users[login] || users[login].password !== hashPass(pass)) {
-                    document.getElementById('authError').textContent = 'Неверный логин или пароль'; return;
-                }
-                currentUser = login;
-                setSession(login);
-                loadState();
-                showApp();
-            });
-            document.getElementById('registerBtn').addEventListener('click', () => {
-                const login = document.getElementById('loginInput').value.trim();
-                const pass = document.getElementById('passwordInput').value;
-                if (!login || !pass) { document.getElementById('authError').textContent = 'Введите логин и пароль'; return; }
-                const users = getUsers();
-                if (users[login]) { document.getElementById('authError').textContent = 'Пользователь уже существует'; return; }
-                users[login] = { password: hashPass(pass), data: null };
-                saveUsers(users);
-                currentUser = login;
-                setSession(login);
-                loadState();
-                showApp();
-            });
-            document.getElementById('logoutBtn').addEventListener('click', () => {
-                clearSession();
-                currentUser = null;
-                state = {};
-                showAuth();
-            });
-            document.getElementById('shareBtn').addEventListener('click', () => {
-                const proj = getProject();
-                if (!proj) { alert('Нет активного проекта'); return; }
-                const data = JSON.stringify(proj);
-                const encoded = btoa(unescape(encodeURIComponent(data)));
-                const url = window.location.origin + window.location.pathname + '#project=' + encoded;
-                navigator.clipboard.writeText(url).then(() => alert('Ссылка скопирована!'));
-            });
-
-            // ---- Import from link ----
-            window.addEventListener('hashchange', importFromHash);
-            function importFromHash() {
-                const hash = window.location.hash;
-                if (hash.startsWith('#project=')) {
-                    const encoded = hash.slice('#project='.length);
-                    try {
-                        const json = decodeURIComponent(escape(atob(encoded)));
-                        const imported = JSON.parse(json);
-                        if (imported.id && imported.groups) {
-                            if (confirm('Загрузить проект из ссылки?')) {
-                                if (!currentUser) { alert('Сначала войдите'); window.location.hash = ''; return; }
-                                const exists = state.projects.find(p => p.id === imported.id);
-                                if (exists) Object.assign(exists, imported);
-                                else state.projects.push(imported);
-                                state.activeProjectId = imported.id;
-                                saveState();
-                                renderAll();
-                                window.location.hash = '';
-                            }
-                        }
-                    } catch(e) { alert('Некорректная ссылка'); }
-                }
-            }
-            if (window.location.hash.startsWith('#project=')) importFromHash();
-
-            // ---- Helpers ----
+            // ===================== HELPERS =====================
             function genId() { return Date.now() + '_' + Math.random().toString(36).slice(2,6); }
             function toLocalISO(date) { const d=new Date(date); return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2); }
             function isWeekend(date) { const d = new Date(date); return d.getDay()===0 || d.getDay()===6; }
@@ -272,7 +181,7 @@
                 return intervals;
             }
 
-            // ---- Render ----
+            // ===================== RENDER =====================
             function renderAll() { if(!currentUser) return; renderProjectSelect(); renderTable(); renderGantt(); }
             function renderProjectSelect() {
                 const sel = document.getElementById('projectSelect');
@@ -295,7 +204,7 @@
                 tbody.innerHTML = html;
                 attachTableEvents();
             }
-            // Остальные функции (attachTableEvents, drag&drop, update...) остаются без изменений, только save() -> saveState()
+
             function attachTableEvents() {
                 document.querySelectorAll('.row.group').forEach(row => {
                     row.addEventListener('click', function(e) {
@@ -317,11 +226,8 @@
                 let dragSrcId, dragSrcGroup, dragSrcIdx;
                 document.querySelectorAll('.row.task').forEach(row => {
                     row.addEventListener('dragstart', function(e){
-                        dragSrcId = this.dataset.taskId;
-                        dragSrcGroup = this.dataset.groupId;
-                        dragSrcIdx = parseInt(this.dataset.idx);
-                        e.dataTransfer.effectAllowed = 'move';
-                        e.dataTransfer.setData('text/plain', this.dataset.taskId);
+                        dragSrcId = this.dataset.taskId; dragSrcGroup = this.dataset.groupId; dragSrcIdx = parseInt(this.dataset.idx);
+                        e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', this.dataset.taskId);
                         this.style.opacity = '0.4';
                     });
                     row.addEventListener('dragend', function(){ this.style.opacity = '1'; });
@@ -343,12 +249,11 @@
                     });
                 });
             }
+
             function moveTask(taskId, fromGroupId, fromIdx, toGroupId, toIdx) {
                 const proj = getProject();
-                const fromGroup = proj.groups.find(g=>g.id===fromGroupId);
-                if (!fromGroup) return;
-                const task = fromGroup.tasks[fromIdx];
-                if (!task || task.id!==taskId) return;
+                const fromGroup = proj.groups.find(g=>g.id===fromGroupId); if (!fromGroup) return;
+                const task = fromGroup.tasks[fromIdx]; if (!task || task.id!==taskId) return;
                 fromGroup.tasks.splice(fromIdx,1);
                 if (toGroupId === fromGroupId) {
                     const insertIdx = (toIdx!==undefined) ? (toIdx>fromIdx ? toIdx-1 : toIdx) : fromGroup.tasks.length;
@@ -359,10 +264,10 @@
                 }
                 saveState(); renderAll();
             }
+
             function renderGantt() {
                 const proj = getProject();
-                const header = document.getElementById('timeHeader');
-                const body = document.getElementById('ganttBody');
+                const header = document.getElementById('timeHeader'), body = document.getElementById('ganttBody');
                 if (!proj || proj.groups.length===0) { header.innerHTML=''; body.innerHTML=''; return; }
                 let minD=null, maxD=null;
                 proj.groups.forEach(g=>g.tasks.forEach(t=>{
@@ -371,32 +276,23 @@
                     if(!isNaN(e)){ if(!minD||e<minD) minD=e; if(!maxD||e>maxD) maxD=e; }
                 }));
                 if(!minD){ minD=new Date(); maxD=new Date(); maxD.setDate(maxD.getDate()+30); }
-                minD=new Date(minD); minD.setDate(minD.getDate()-3);
-                maxD=new Date(maxD); maxD.setDate(maxD.getDate()+10);
+                minD=new Date(minD); minD.setDate(minD.getDate()-3); maxD=new Date(maxD); maxD.setDate(maxD.getDate()+10);
                 const totalDays=Math.ceil((maxD-minD)/86400000), totalWidth=totalDays*32;
                 let monthsHtml='<div class="time-month-row">';
-                const months=[];
-                let cursor=new Date(minD);
+                const months=[]; let cursor=new Date(minD);
                 while(cursor<=maxD){
                     const key=cursor.getFullYear()+'-'+(cursor.getMonth()+1);
                     if(!months.find(m=>m.key===key)) months.push({key, label:cursor.toLocaleDateString('ru-RU',{month:'long',year:'numeric'}), startDay:Math.ceil((cursor-minD)/86400000)});
                     cursor.setDate(cursor.getDate()+1);
                 }
-                for(let i=0;i<months.length;i++){
-                    const m=months[i], next=i+1<months.length?months[i+1].startDay:totalDays;
-                    monthsHtml+=`<div class="month-label" style="width:${(next-m.startDay)*32}px;" data-month-key="${m.key}">${m.label} <span class="calendar-icon">📅</span></div>`;
-                }
+                for(let i=0;i<months.length;i++){ const m=months[i], next=i+1<months.length?months[i+1].startDay:totalDays; monthsHtml+=`<div class="month-label" style="width:${(next-m.startDay)*32}px;" data-month-key="${m.key}">${m.label} <span class="calendar-icon">📅</span></div>`; }
                 monthsHtml+='</div><div class="time-day-row">';
-                for(let d=0;d<totalDays;d++){
-                    const date=new Date(minD); date.setDate(date.getDate()+d);
-                    monthsHtml+=`<div class="day-cell${isWeekend(date)?' weekend':''}${date.toDateString()===new Date().toDateString()?' today':''}" style="min-width:32px;">${date.getDate()}</div>`;
-                }
+                for(let d=0;d<totalDays;d++){ const date=new Date(minD); date.setDate(date.getDate()+d); monthsHtml+=`<div class="day-cell${isWeekend(date)?' weekend':''}${date.toDateString()===new Date().toDateString()?' today':''}" style="min-width:32px;">${date.getDate()}</div>`; }
                 header.innerHTML=monthsHtml;
                 document.querySelectorAll('.calendar-icon').forEach(icon=>icon.addEventListener('click', e=>{ e.stopPropagation(); openMonthCalendar(icon.parentElement.dataset.monthKey); }));
                 let bodyHtml=`<div style="position:relative; width:${totalWidth}px; min-width:100%;">`;
                 for(let d=0;d<totalDays;d++){ const date=new Date(minD); date.setDate(date.getDate()+d); if(isDayOff(date,proj)) bodyHtml+=`<div class="weekend-strip" style="left:${d*32}px; width:32px;"></div>`; }
-                const today=new Date();
-                if(today>=minD && today<=maxD) bodyHtml+=`<div class="today-line" style="left:${Math.ceil((today-minD)/86400000)*32}px;"></div>`;
+                const today=new Date(); if(today>=minD && today<=maxD) bodyHtml+=`<div class="today-line" style="left:${Math.ceil((today-minD)/86400000)*32}px;"></div>`;
                 proj.groups.forEach(g=>{
                     bodyHtml+=`<div class="gantt-row group" style="width:${totalWidth}px;"></div>`;
                     if(g.expanded) g.tasks.forEach(t=>{
@@ -405,8 +301,7 @@
                         else {
                             let segs='';
                             intervals.forEach(seg=>{
-                                const left=Math.round((seg.start-minD)/86400000)*32;
-                                const width=(Math.round((seg.end-seg.start)/86400000)+1)*32;
+                                const left=Math.round((seg.start-minD)/86400000)*32, width=(Math.round((seg.end-seg.start)/86400000)+1)*32;
                                 const done=t.status==='Завершено'?' status-done':'';
                                 segs+=`<div class="bar-segment${done}" style="left:${left}px;width:${width}px;" data-task-id="${t.id}">`;
                                 t.markers.forEach(m=>{
@@ -439,6 +334,7 @@
                     if(seg) handleBarClick(seg.dataset.taskId, e);
                 };
             }
+
             function getMarkerStyle(type) {
                 const def = state.markerTypes[type] || state.markerTypes['control'];
                 let radius='2px', size=10;
@@ -447,18 +343,275 @@
                 else { radius='2px'; size=12; }
                 return { color:def.color, shape:def.shape, radius, size };
             }
-            function openMonthCalendar(monthKey) { /* как раньше, только saveState */ }
-            function handleBarClick(taskId, e) { /* как раньше */ }
-            function handleMarkerClick(taskId, markerId) { /* как раньше */ }
-            // ... (остальные функции модалок, статусов, типов и т.д. – идентичны предыдущей версии с заменой save на saveState)
 
-            // Для экономии места я не дублирую все функции, они есть в предыдущем ответе. Вы можете скопировать их из того сообщения и вставить сюда.
-            // Главное – заменить save() на saveState() и добавить проверку currentUser в начало функций, которые требуют авторизации.
+            function openMonthCalendar(monthKey) {
+                const proj = getProject();
+                const [year, month] = monthKey.split('-').map(Number);
+                const firstDay = new Date(year, month-1, 1), lastDay = new Date(year, month, 0);
+                let html = `<h3>Выходные (${firstDay.toLocaleDateString('ru-RU',{month:'long',year:'numeric'})})</h3>`;
+                html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">';
+                for (let d=new Date(firstDay); d<=lastDay; d.setDate(d.getDate()+1)) {
+                    const ds = toLocalISO(d), off = isDayOff(ds, proj);
+                    html += `<div style="background:${off?'#fecaca':'#e8f5e9'}; padding:4px; text-align:center; cursor:pointer; border-radius:4px;" data-date="${ds}" class="day-toggle">${d.getDate()}</div>`;
+                }
+                html += '</div><div class="btn-row"><button class="btn" onclick="closeModal()">Отмена</button></div>';
+                document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay"><div class="modal" onclick="event.stopPropagation()">${html}</div></div>`;
+                document.querySelectorAll('.day-toggle').forEach(el => el.addEventListener('click', function(){
+                    const ds = this.dataset.date;
+                    const overrides = proj.workingOverrides || {};
+                    if (overrides[ds]==='off') delete overrides[ds];
+                    else if (overrides[ds]==='on') overrides[ds]='off';
+                    else if (isWeekend(ds)) overrides[ds]='on';
+                    else overrides[ds]='off';
+                    proj.workingOverrides = overrides;
+                    saveState(); renderAll();
+                }));
+            }
+
+            function handleBarClick(taskId, e) {
+                const proj = getProject(); if (!proj) return;
+                const rect = e.currentTarget.getBoundingClientRect();
+                const dayOffset = Math.floor((e.clientX - rect.left) / 32);
+                const minD = getMinDate(proj);
+                const date = new Date(minD); date.setDate(date.getDate()+dayOffset);
+                showMarkerModal(taskId, toLocalISO(date));
+            }
+            function getMinDate(proj) { let min=null; proj.groups.forEach(g=>g.tasks.forEach(t=>{ const s=new Date(t.startDate); if(!isNaN(s)&&(!min||s<min))min=s;})); return min||new Date(); }
+            function handleMarkerClick(taskId, markerId) {
+                const proj = getProject();
+                const task = proj.groups.flatMap(g=>g.tasks).find(t=>t.id===taskId);
+                if (task) { const m = task.markers.find(m=>m.id===markerId); if (m) showMarkerEditModal(taskId, m); }
+            }
+
+            // ===================== MODALS =====================
+            function showMarkerModal(taskId, startDate) {
+                const typesHtml = Object.entries(state.markerTypes).map(([t,o]) => `<option value="${t}">${o.label}</option>`).join('');
+                document.getElementById('modalContainer').innerHTML = `
+                <div class="modal-overlay" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()">
+                    <h3>Новая точка</h3>
+                    <label>Дата начала</label><input type="date" id="mStart" value="${startDate}">
+                    <label><input type="checkbox" id="mRange" onchange="document.getElementById('mEnd').disabled=!this.checked"> Промежуток</label>
+                    <label>Дата окончания</label><input type="date" id="mEnd" disabled>
+                    <label>Тип</label><select id="mType">${typesHtml}</select>
+                    <button class="btn small" id="manageTypesBtn">⚙️ Типы</button>
+                    <label>Комментарий</label><textarea id="mComment"></textarea>
+                    <div class="btn-row"><button class="btn" onclick="closeModal()">Отмена</button><button class="btn accent" id="saveBtn">Сохранить</button></div>
+                </div></div>`;
+                document.getElementById('saveBtn').onclick = () => {
+                    const s = document.getElementById('mStart').value;
+                    const range = document.getElementById('mRange').checked;
+                    const e = range ? document.getElementById('mEnd').value : s;
+                    const type = document.getElementById('mType').value;
+                    const comment = document.getElementById('mComment').value;
+                    addMarker(taskId, s, e, type, comment);
+                    closeModal();
+                };
+                document.getElementById('manageTypesBtn').onclick = () => showTypeManager();
+            }
+
+            function showMarkerEditModal(taskId, marker) {
+                const typesHtml = Object.entries(state.markerTypes).map(([t,o]) => `<option value="${t}" ${marker.type===t?'selected':''}>${o.label}</option>`).join('');
+                document.getElementById('modalContainer').innerHTML = `
+                <div class="modal-overlay" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()">
+                    <h3>Редактировать точку</h3>
+                    <label>Дата начала</label><input type="date" id="mStart" value="${marker.startDate}">
+                    <label><input type="checkbox" id="mRange" ${marker.startDate!==marker.endDate?'checked':''} onchange="document.getElementById('mEnd').disabled=!this.checked"> Промежуток</label>
+                    <label>Дата окончания</label><input type="date" id="mEnd" value="${marker.endDate||marker.startDate}" ${marker.startDate!==marker.endDate?'':'disabled'}>
+                    <label>Тип</label><select id="mType">${typesHtml}</select>
+                    <button class="btn small" id="manageTypesBtn">⚙️ Типы</button>
+                    <label>Комментарий</label><textarea id="mComment">${escapeHtml(marker.comment||'')}</textarea>
+                    <div class="btn-row"><button class="btn danger" id="delBtn">Удалить</button><button class="btn" onclick="closeModal()">Отмена</button><button class="btn accent" id="saveBtn">Сохранить</button></div>
+                </div></div>`;
+                document.getElementById('saveBtn').onclick = () => {
+                    const s = document.getElementById('mStart').value;
+                    const range = document.getElementById('mRange').checked;
+                    const e = range ? document.getElementById('mEnd').value : s;
+                    updateMarker(taskId, marker.id, { startDate:s, endDate:e, type:document.getElementById('mType').value, comment:document.getElementById('mComment').value });
+                    closeModal();
+                };
+                document.getElementById('delBtn').onclick = () => { if(confirm('Удалить?')) { deleteMarker(taskId, marker.id); closeModal(); } };
+                document.getElementById('manageTypesBtn').onclick = () => showTypeManager();
+            }
+
+            function showTypeManager() {
+                let html = '<h3>Типы точек</h3><ul style="list-style:none;padding:0;">';
+                Object.entries(state.markerTypes).forEach(([type, obj]) => {
+                    html += `<li style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><span>${obj.label} (${obj.shape})</span> <div><button class="btn small" data-type="${type}" data-action="edit-type">✎</button> <button class="btn small danger" data-type="${type}" data-action="delete-type">🗑</button></div></li>`;
+                });
+                html += '</ul><div class="btn-row" style="margin-top:12px;"><button class="btn accent" id="addTypeBtn">+ Новый тип</button><button class="btn" onclick="closeModal()">Закрыть</button></div>';
+                document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay"><div class="modal" onclick="event.stopPropagation()">${html}</div></div>`;
+                document.querySelectorAll('[data-action="edit-type"]').forEach(btn => btn.addEventListener('click', () => showAddTypeForm(btn.dataset.type)));
+                document.querySelectorAll('[data-action="delete-type"]').forEach(btn => btn.addEventListener('click', function() {
+                    const type = this.dataset.type;
+                    if (confirm(`Удалить тип "${state.markerTypes[type].label}"?`)) {
+                        state.projects.forEach(p => p.groups.forEach(g => g.tasks.forEach(t => t.markers.forEach(m => { if(m.type===type) m.type='control'; }))));
+                        delete state.markerTypes[type];
+                        saveState(); renderAll(); showTypeManager();
+                    }
+                }));
+                document.getElementById('addTypeBtn').addEventListener('click', () => showAddTypeForm());
+            }
+
+            function showAddTypeForm(existingTypeKey = null) {
+                const isEdit = existingTypeKey !== null;
+                const obj = isEdit ? state.markerTypes[existingTypeKey] : null;
+                let html = `<h3>${isEdit ? 'Редактировать' : 'Новый'} тип</h3>`;
+                html += `<label>Название</label><input id="typeLabel" value="${isEdit ? escapeHtml(obj.label) : ''}">`;
+                html += `<label>Форма</label><select id="typeShape">
+                    <option value="circle" ${isEdit && obj.shape==='circle'?'selected':''}>Круг</option>
+                    <option value="diamond" ${isEdit && obj.shape==='diamond'?'selected':''}>Ромб</option>
+                    <option value="square" ${isEdit && obj.shape==='square'?'selected':''}>Квадрат</option>
+                </select>`;
+                html += `<label>Цвет</label><input type="color" id="typeColor" value="${isEdit ? obj.color : '#3b82f6'}">`;
+                html += `<div class="btn-row"><button class="btn" onclick="showTypeManager()">Назад</button><button class="btn accent" id="saveTypeBtn">${isEdit ? 'Сохранить' : 'Создать'}</button></div>`;
+                document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay"><div class="modal" onclick="event.stopPropagation()">${html}</div></div>`;
+                document.getElementById('saveTypeBtn').onclick = () => {
+                    const label = document.getElementById('typeLabel').value.trim();
+                    const shape = document.getElementById('typeShape').value;
+                    const color = document.getElementById('typeColor').value;
+                    if (!label) return;
+                    if (isEdit) { state.markerTypes[existingTypeKey].label = label; state.markerTypes[existingTypeKey].shape = shape; state.markerTypes[existingTypeKey].color = color; }
+                    else {
+                        const newType = label.toLowerCase().replace(/\s+/g,'_');
+                        if (state.markerTypes[newType]) { alert('Тип с таким ключом уже существует'); return; }
+                        state.markerTypes[newType] = { label, shape, color };
+                    }
+                    saveState(); renderAll(); showTypeManager();
+                };
+            }
+
+            function manageStatuses() {
+                let html = '<h3>Статусы</h3><ul style="list-style:none;padding:0;">';
+                state.customStatuses.forEach((s,i) => {
+                    html += `<li style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><span>${escapeHtml(s)}</span> <div><button class="btn small" data-idx="${i}" data-action="edit-status">✎</button> <button class="btn small danger" data-idx="${i}" data-action="delete-status">🗑</button></div></li>`;
+                });
+                html += '</ul><div style="display:flex; gap:8px; margin-top:12px;"><input id="newStatus" placeholder="Новый статус" style="flex:1;"><button class="btn accent" id="addStatusBtn">Добавить</button><button class="btn" onclick="closeModal()">Закрыть</button></div>';
+                document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay"><div class="modal" onclick="event.stopPropagation()">${html}</div></div>`;
+                let editingIndex = null;
+                const newInput = document.getElementById('newStatus');
+                const addBtn = document.getElementById('addStatusBtn');
+                document.querySelectorAll('[data-action="edit-status"]').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const idx = parseInt(this.dataset.idx);
+                        newInput.value = state.customStatuses[idx]; newInput.focus();
+                        addBtn.textContent = 'Сохранить'; editingIndex = idx;
+                    });
+                });
+                document.querySelectorAll('[data-action="delete-status"]').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        state.customStatuses.splice(parseInt(this.dataset.idx),1); saveState(); manageStatuses();
+                    });
+                });
+                addBtn.addEventListener('click', () => {
+                    const val = newInput.value.trim(); if (!val) return;
+                    if (editingIndex !== null) { state.customStatuses[editingIndex] = val; }
+                    else { if (state.customStatuses.includes(val)) { alert('Такой статус уже есть'); return; } state.customStatuses.push(val); }
+                    saveState(); manageStatuses();
+                });
+            }
+
+            // ===================== CRUD =====================
+            function addGroup() {
+                document.getElementById('modalContainer').innerHTML = `
+                <div class="modal-overlay" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()">
+                    <h3>Новая группа</h3><label>Название</label><input id="groupName">
+                    <div class="btn-row"><button class="btn" onclick="closeModal()">Отмена</button><button class="btn accent" id="addGroupConfirm">Создать</button></div>
+                </div></div>`;
+                document.getElementById('addGroupConfirm').onclick = () => {
+                    const name = document.getElementById('groupName').value.trim();
+                    if (name) { getProject().groups.push({id:genId(), title:name, expanded:true, tasks:[]}); saveState(); renderAll(); closeModal(); }
+                };
+            }
+            function showAddTaskModal() {
+                const proj = getProject(); if (proj.groups.length===0) { alert('Создайте группу'); return; }
+                const opts = proj.groups.map(g=>`<option value="${g.id}">${escapeHtml(g.title)}</option>`).join('');
+                document.getElementById('modalContainer').innerHTML = `
+                <div class="modal-overlay" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()">
+                    <h3>Новая задача</h3><label>Название</label><input id="taskName"><label>Группа</label><select id="taskGroup">${opts}</select>
+                    <div class="btn-row"><button class="btn" onclick="closeModal()">Отмена</button><button class="btn accent" id="addTaskConfirm">Добавить</button></div>
+                </div></div>`;
+                document.getElementById('addTaskConfirm').onclick = () => {
+                    const name = document.getElementById('taskName').value.trim(), gid = document.getElementById('taskGroup').value;
+                    if (name && gid) { const g = proj.groups.find(g=>g.id===gid); if(g){ g.tasks.push({id:genId(), name, status:'Не начато', startDate:toLocalISO(new Date()), endDate:toLocalISO(new Date(Date.now()+5*86400000)), markers:[]}); g.expanded=true; saveState(); renderAll(); closeModal(); } }
+                };
+            }
+            function addMarker(taskId, s, e, type, comment) {
+                const proj = getProject(); if (!proj) return;
+                for (const g of proj.groups) { const task = g.tasks.find(t=>t.id===taskId); if(task){ task.markers.push({id:genId(), startDate:s, endDate:e, type, comment}); saveState(); renderAll(); return; } }
+            }
+            function updateMarker(taskId, markerId, upd) {
+                const proj = getProject();
+                for (const g of proj.groups) { const task = g.tasks.find(t=>t.id===taskId); if(task){ const m=task.markers.find(m=>m.id===markerId); if(m){Object.assign(m,upd); saveState(); renderAll();} return; } }
+            }
+            function deleteMarker(taskId, markerId) {
+                const proj = getProject();
+                for (const g of proj.groups) { const task = g.tasks.find(t=>t.id===taskId); if(task){ task.markers = task.markers.filter(m=>m.id!==markerId); saveState(); renderAll(); return; } }
+            }
+            function updateGroupTitle(id, val) { const proj=getProject(); const g=proj.groups.find(g=>g.id===id); if(g){g.title=val; saveState();} }
+            function updateTaskName(id, val) { const proj=getProject(); const t=proj.groups.flatMap(g=>g.tasks).find(t=>t.id===id); if(t){t.name=val; saveState();} }
+            function updateTaskStatus(id, val) { const proj=getProject(); const t=proj.groups.flatMap(g=>g.tasks).find(t=>t.id===id); if(t){t.status=val; saveState(); renderAll();} }
+            function updateTaskDate(id, field, val) { if(!val) return; const proj=getProject(); for(const g of proj.groups){ const t=g.tasks.find(t=>t.id===id); if(t){t[field]=val; saveState(); renderAll(); return;} } }
+            function toggleGroup(id) { const proj=getProject(); const g=proj.groups.find(g=>g.id===id); if(g){g.expanded=!g.expanded; saveState(); renderAll();} }
+            function deleteGroup(id) { const proj=getProject(); if(proj&&confirm('Удалить группу?')){ proj.groups=proj.groups.filter(g=>g.id!==id); saveState(); renderAll(); } }
+            function deleteTask(id) { const proj=getProject(); for(const g of proj.groups){ const idx=g.tasks.findIndex(t=>t.id===id); if(idx!==-1){ if(confirm('Удалить задачу?')){ g.tasks.splice(idx,1); saveState(); renderAll(); } return; } } }
+
+            function newProject() { const name=prompt('Название проекта:'); if(name){ state.projects.push({id:genId(),name,groups:[],workingOverrides:{}}); state.activeProjectId=state.projects[state.projects.length-1].id; saveState(); renderAll(); } }
+            function renameProject() { const proj=getProject(); if(!proj) return; const name=prompt('Новое название:',proj.name); if(name){ proj.name=name; saveState(); renderAll(); } }
+            function deleteProject() { if(state.projects.length<=1){ alert('Нельзя удалить последний'); return; } if(confirm('Удалить проект?')){ state.projects=state.projects.filter(p=>p.id!==state.activeProjectId); state.activeProjectId=state.projects[0].id; saveState(); renderAll(); } }
 
             function closeModal() { document.getElementById('modalContainer').innerHTML = ''; }
             function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-            // Вешаем обработчики на кнопки тулбара
+            // ===================== SHARE =====================
+            function shareProject() {
+                const proj = getProject(); if (!proj) { alert('Нет активного проекта'); return; }
+                const data = JSON.stringify(proj);
+                const encoded = btoa(unescape(encodeURIComponent(data)));
+                const url = window.location.origin + window.location.pathname + '#project=' + encoded;
+                navigator.clipboard.writeText(url).then(() => alert('Ссылка скопирована!'));
+            }
+            window.addEventListener('hashchange', importFromHash);
+            function importFromHash() {
+                const hash = window.location.hash;
+                if (hash.startsWith('#project=')) {
+                    const encoded = hash.slice('#project='.length);
+                    try {
+                        const json = decodeURIComponent(escape(atob(encoded)));
+                        const imported = JSON.parse(json);
+                        if (imported.id && imported.groups) {
+                            if (confirm('Загрузить проект из ссылки?')) {
+                                if (!currentUser) { alert('Сначала войдите'); window.location.hash = ''; return; }
+                                const exists = state.projects.find(p => p.id === imported.id);
+                                if (exists) Object.assign(exists, imported);
+                                else state.projects.push(imported);
+                                state.activeProjectId = imported.id;
+                                saveState(); renderAll();
+                                window.location.hash = '';
+                            }
+                        }
+                    } catch(e) { alert('Некорректная ссылка'); }
+                }
+            }
+            if (window.location.hash.startsWith('#project=')) importFromHash();
+
+            // ===================== EVENT LISTENERS =====================
+            document.getElementById('loginBtn').addEventListener('click', () => {
+                const login = document.getElementById('loginInput').value.trim(), pass = document.getElementById('passwordInput').value;
+                if (!login || !pass) { document.getElementById('authError').textContent = 'Введите логин и пароль'; return; }
+                const users = getUsers();
+                if (!users[login] || users[login].password !== hashPass(pass)) { document.getElementById('authError').textContent = 'Неверный логин или пароль'; return; }
+                currentUser = login; setSession(login); loadState(); showApp();
+            });
+            document.getElementById('registerBtn').addEventListener('click', () => {
+                const login = document.getElementById('loginInput').value.trim(), pass = document.getElementById('passwordInput').value;
+                if (!login || !pass) { document.getElementById('authError').textContent = 'Введите логин и пароль'; return; }
+                const users = getUsers();
+                if (users[login]) { document.getElementById('authError').textContent = 'Пользователь уже существует'; return; }
+                users[login] = { password: hashPass(pass), data: null }; saveUsers(users);
+                currentUser = login; setSession(login); loadState(); showApp();
+            });
+            document.getElementById('logoutBtn').addEventListener('click', () => { clearSession(); currentUser = null; state = {}; showAuth(); });
+            document.getElementById('shareBtn').addEventListener('click', shareProject);
             document.getElementById('addGroupBtn').addEventListener('click', addGroup);
             document.getElementById('addTaskBtn').addEventListener('click', showAddTaskModal);
             document.getElementById('manageStatusesBtn').addEventListener('click', manageStatuses);
@@ -466,16 +619,11 @@
             document.getElementById('newBtn').addEventListener('click', newProject);
             document.getElementById('deleteBtn').addEventListener('click', deleteProject);
 
-            // Авторизация при загрузке
-            (function(){
+            // ===================== INIT =====================
+            (function init() {
                 const session = getSession();
-                if (session && session.loggedIn) {
-                    currentUser = session.username;
-                    loadState();
-                    showApp();
-                } else {
-                    showAuth();
-                }
+                if (session && session.loggedIn) { currentUser = session.username; loadState(); showApp(); }
+                else { showAuth(); }
             })();
         })();
     </script>
