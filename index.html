@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Гант – конструктор + поделиться</title>
+    <title>Гант – финальная версия</title>
     <style>
         :root {
             --blue: #2563eb; --blue-bar: #3b82f6; --green-bar: #10b981;
@@ -119,7 +119,6 @@
                 markerTypes: {}
             };
 
-            // Сохранение / загрузка
             function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
             function load() {
                 const raw = localStorage.getItem(STORAGE_KEY);
@@ -158,7 +157,7 @@
                 state.activeProjectId = state.projects[0].id;
             }
 
-            // Хелперы
+            // Хелперы...
             function genId() { return Date.now() + '_' + Math.random().toString(36).slice(2,6); }
             function toLocalISO(date) { const d=new Date(date); return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2); }
             function isWeekend(date) { const d = new Date(date); return d.getDay()===0 || d.getDay()===6; }
@@ -188,7 +187,8 @@
             function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
             window.closeModal = closeModal;
 
-            // Рендер
+         
+            // ===================== RENDER =====================
             function renderAll() { renderProjectSelect(); renderTable(); renderGantt(); }
             function renderProjectSelect() {
                 const sel = document.getElementById('projectSelect');
@@ -274,7 +274,6 @@
                 save(); renderAll();
             }
 
-            // Гант
             function renderGantt() {
                 const proj = getProject();
                 const header = document.getElementById('timeHeader'), body = document.getElementById('ganttBody');
@@ -410,7 +409,6 @@
                 if (task) { const m = task.markers.find(m=>m.id===markerId); if (m) showMarkerEditModal(taskId, m); }
             }
 
-            // Модалки
             function showMarkerModal(taskId, startDate) {
                 const typesHtml = Object.entries(state.markerTypes).map(([t,o]) => `<option value="${t}">${o.label}</option>`).join('');
                 document.getElementById('modalContainer').innerHTML = `
@@ -431,6 +429,7 @@
                     addMarker(taskId, s, e, type, comment); closeModal();
                 };
             }
+
             function showMarkerEditModal(taskId, marker) {
                 const typesHtml = Object.entries(state.markerTypes).map(([t,o]) => `<option value="${t}" ${marker.type===t?'selected':''}>${o.label}</option>`).join('');
                 document.getElementById('modalContainer').innerHTML = `
@@ -573,45 +572,57 @@
             }
             function hideTooltip() { document.getElementById('tooltip').style.opacity = '0'; }
 
-            // Поделиться
+            // Поделиться (исправленная версия)
             function shareProject() {
-                const proj = getProject();
-                if (!proj) { alert('Нет активного проекта'); return; }
+                const proj = getProject(); if (!proj) { alert('Нет активного проекта'); return; }
                 const data = JSON.stringify(proj);
                 const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(data))));
                 const url = window.location.origin + window.location.pathname + '#project=' + encoded;
                 navigator.clipboard.writeText(url).then(() => alert('Ссылка скопирована!'));
             }
 
-            // Загрузка проекта из ссылки
             function importFromHash() {
-    const hash = window.location.hash;
-    if (hash.startsWith('#project=')) {
-        const encoded = hash.slice('#project='.length);
-        try {
-            const json = decodeURIComponent(escape(atob(decodeURIComponent(encoded))));
-            const imported = JSON.parse(json);
-            if (imported.id && imported.groups) {
-                const exists = state.projects.find(p => p.id === imported.id);
-                if (exists) Object.assign(exists, imported);
-                else state.projects.push(imported);
-                state.activeProjectId = imported.id;
-                save();
-                renderAll();
-                // Убираем хеш без повторного вызова
-                window.removeEventListener('hashchange', importFromHash);
-                window.location.hash = '';
-                setTimeout(() => window.addEventListener('hashchange', importFromHash), 100);
+                const hash = window.location.hash;
+                if (hash.startsWith('#project=')) {
+                    const encoded = hash.slice('#project='.length);
+                    try {
+                        const json = decodeURIComponent(escape(atob(decodeURIComponent(encoded))));
+                        const imported = JSON.parse(json);
+                        if (imported.id && imported.groups) {
+                            const exists = state.projects.find(p => p.id === imported.id);
+                            if (exists) Object.assign(exists, imported);
+                            else state.projects.push(imported);
+                            state.activeProjectId = imported.id;
+                            save();
+                            renderAll();
+                            // Убираем хеш и предотвращаем повторное срабатывание
+                            window.removeEventListener('hashchange', importFromHash);
+                            window.location.hash = '';
+                            setTimeout(() => window.addEventListener('hashchange', importFromHash), 100);
+                        }
+                    } catch(e) {
+                        alert('Некорректная ссылка');
+                    }
+                }
             }
-        } catch(e) {
-            alert('Некорректная ссылка');
-        }
-    }
-}
-            // Обрабатываем хеш при первой загрузке
+            window.addEventListener('hashchange', importFromHash);
             if (window.location.hash.startsWith('#project=')) {
-    setTimeout(importFromHash, 100);
-}
+                setTimeout(importFromHash, 100);
+            }
+
+            // Обработчики кнопок тулбара
+            document.getElementById('addGroupBtn').addEventListener('click', addGroup);
+            document.getElementById('addTaskBtn').addEventListener('click', showAddTaskModal);
+            document.getElementById('manageStatusesBtn').addEventListener('click', manageStatuses);
+            document.getElementById('shareBtn').addEventListener('click', shareProject);
+            document.getElementById('renameBtn').addEventListener('click', renameProject);
+            document.getElementById('newBtn').addEventListener('click', newProject);
+            document.getElementById('deleteBtn').addEventListener('click', deleteProject);
+
+            // Глобальные функции для вызова из модалок
+            window.manageStatuses = manageStatuses;
+            window.showTypeManager = showTypeManager;
+            window.showAddTypeForm = showAddTypeForm;
 
             // Старт
             load();
