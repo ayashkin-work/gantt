@@ -1,666 +1,684 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
- <meta charset="UTF-8">
- <meta name="viewport" content="width=device-width, initial-scale=1.0">
- <title>Гант – с авторизацией и шарингом</title>
- <style>
-  :root {
-   --blue: #2563eb; --blue-bar: #3b82f6; --green-bar: #10b981;
-   --row-height: 42px; --time-header-height: 56px; --border: #e0e0e0;
-  }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #e8eaed; display: flex; justify-content: center; min-height: 100vh; padding: 16px; }
-  #auth-container, #app-container { background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-  #app-container { width: 100%; max-width: 1440px; display: flex; flex-direction: column; height: 92vh; }
-  #auth-container { max-width: 400px; padding: 32px; margin: auto; display: flex; flex-direction: column; gap: 16px; }
-  #auth-container h2 { text-align: center; }
-  #auth-container input { width: 100%; padding: 10px 12px; border: 1px solid #d0d5dd; border-radius: 6px; font-size: 14px; }
-  #auth-container .btn-row { display: flex; gap: 8px; justify-content: center; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Гант – финальная версия</title>
+    <style>
+        :root {
+            --blue: #2563eb; --blue-bar: #3b82f6; --green-bar: #10b981;
+            --row-height: 42px; --time-header-height: 56px; --border: #e0e0e0;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #e8eaed; display: flex; justify-content: center; min-height: 100vh; padding: 16px; }
+        #auth-container, #app-container { background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        #app-container { width: 100%; max-width: 1440px; display: flex; flex-direction: column; height: 92vh; }
+        #auth-container { max-width: 400px; padding: 32px; margin: auto; display: flex; flex-direction: column; gap: 16px; }
+        #auth-container h2 { text-align: center; }
+        #auth-container input { width: 100%; padding: 10px 12px; border: 1px solid #d0d5dd; border-radius: 6px; font-size: 14px; }
+        #auth-container .btn-row { display: flex; gap: 8px; justify-content: center; }
 
-  .toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: #fafbfc; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-  .toolbar .brand { font-weight:700; font-size:17px; margin-right:10px; }
-  .btn { padding: 5px 10px; border-radius:5px; border:1px solid #d0d5dd; background:#fff; cursor:pointer; font-size:12px; font-weight:500; white-space:nowrap; }
-  .btn:hover { background:#f5f6f8; }
-  .btn.accent { background:var(--blue); color:#fff; border-color:var(--blue); }
-  .btn.danger { color:#dc2626; border-color:#fca5a5; background:#fef2f2; }
-  select.project-switcher { padding:5px 8px; border-radius:5px; border:1px solid #d0d5dd; font-size:12px; background:#fff; max-width:180px; }
+        .toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: #fafbfc; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+        .toolbar .brand { font-weight:700; font-size:17px; margin-right:10px; }
+        .btn { padding: 5px 10px; border-radius:5px; border:1px solid #d0d5dd; background:#fff; cursor:pointer; font-size:12px; font-weight:500; white-space:nowrap; }
+        .btn:hover { background:#f5f6f8; }
+        .btn.accent { background:var(--blue); color:#fff; border-color:var(--blue); }
+        .btn.danger { color:#dc2626; border-color:#fca5a5; background:#fef2f2; }
+        select.project-switcher { padding:5px 8px; border-radius:5px; border:1px solid #d0d5dd; font-size:12px; background:#fff; max-width:180px; }
 
-  .main-container { display:flex; flex:1; overflow:hidden; }
-  .left-panel { width: 460px; min-width: 380px; border-right:2px solid #e5e7eb; display:flex; flex-direction:column; background:#fcfcfd; }
-  .table-section { flex:1; display:flex; flex-direction:column; overflow:hidden; }
-  .table-header { display:flex; background:#f1f3f4; font-weight:600; font-size:10px; text-transform:uppercase; color:#5f6368; border-bottom:2px solid #d0d5dd; height: var(--time-header-height); align-items:flex-end; }
-  .table-header>div { padding:6px 8px; border-right:1px solid #e0e0e0; display:flex; align-items:center; height:100%; }
-  .col-status { width:130px; justify-content:center; position:relative; }
-  .col-status .add-status-btn { position:absolute; right:2px; top:2px; background:none; border:none; font-size:12px; cursor:pointer; color:#888; }
-  .col-name { flex:1; }
-  .col-start, .col-end { width:90px; justify-content:center; }
-  .col-drag { width:30px; justify-content:center; }
-  .table-body { flex:1; overflow-y:auto; }
-  .row { display:flex; align-items:stretch; border-bottom:1px solid #f0f1f3; height: var(--row-height); }
-  .row.group { background:#f8f9fa; cursor:pointer; font-weight:600; }
-  .row.task { background:#fff; transition: background 0.2s; }
-  .row.task.status-done-bg { background: #e6f7ee; }
-  .row>div { padding:6px 8px; display:flex; align-items:center; border-right:1px solid #f3f4f6; font-size:13px; }
-  .drag-handle { cursor: grab; color: #aaa; font-size: 16px; }
-  .expand-icon { margin-right:4px; font-size:10px; transition:0.2s; }
-  .row.group.collapsed .expand-icon { transform: rotate(-90deg); }
-  input.name-input { border:1px solid transparent; background:transparent; padding:4px 6px; border-radius:4px; font-size:13px; width:100%; }
-  .date-input-field { border:1px solid transparent; background:transparent; padding:4px 6px; border-radius:4px; font-size:11px; font-family: monospace; width:85px; text-align:center; }
-  .status-select {
-   border:1px solid #d1d5db; border-radius:18px; padding:4px 24px 4px 8px;
-   font-size:10px; font-weight:600; text-transform:uppercase; background:#f3f4f6; width:110px; text-align:center;
-   appearance:none;
-   background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6"><path fill="%23666" d="M0 0l5 6 5-6z"/></svg>');
-   background-repeat:no-repeat; background-position: right 8px center;
-  }
+        .main-container { display:flex; flex:1; overflow:hidden; }
+        .left-panel { width: 460px; min-width: 380px; border-right:2px solid #e5e7eb; display:flex; flex-direction:column; background:#fcfcfd; }
+        .table-section { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+        .table-header { display:flex; background:#f1f3f4; font-weight:600; font-size:10px; text-transform:uppercase; color:#5f6368; border-bottom:2px solid #d0d5dd; height: var(--time-header-height); align-items:flex-end; }
+        .table-header>div { padding:6px 8px; border-right:1px solid #e0e0e0; display:flex; align-items:center; height:100%; }
+        .col-status { width:130px; justify-content:center; position:relative; }
+        .col-status .add-status-btn { position:absolute; right:2px; top:2px; background:none; border:none; font-size:12px; cursor:pointer; color:#888; }
+        .col-name { flex:1; }
+        .col-start, .col-end { width:90px; justify-content:center; }
+        .col-drag { width:30px; justify-content:center; }
+        .table-body { flex:1; overflow-y:auto; }
+        .row { display:flex; align-items:stretch; border-bottom:1px solid #f0f1f3; height: var(--row-height); }
+        .row.group { background:#f8f9fa; cursor:pointer; font-weight:600; }
+        .row.task { background:#fff; transition: background 0.2s; }
+        .row.task.status-done-bg { background: #e6f7ee; }
+        .row>div { padding:6px 8px; display:flex; align-items:center; border-right:1px solid #f3f4f6; font-size:13px; }
+        .drag-handle { cursor: grab; color: #aaa; font-size: 16px; }
+        .expand-icon { margin-right:4px; font-size:10px; transition:0.2s; }
+        .row.group.collapsed .expand-icon { transform: rotate(-90deg); }
+        input.name-input { border:1px solid transparent; background:transparent; padding:4px 6px; border-radius:4px; font-size:13px; width:100%; }
+        .date-input-field { border:1px solid transparent; background:transparent; padding:4px 6px; border-radius:4px; font-size:11px; font-family: monospace; width:85px; text-align:center; }
+        .status-select {
+            border:1px solid #d1d5db; border-radius:18px; padding:4px 24px 4px 8px;
+            font-size:10px; font-weight:600; text-transform:uppercase; background:#f3f4f6; width:110px; text-align:center;
+            appearance:none;
+            background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6"><path fill="%23666" d="M0 0l5 6 5-6z"/></svg>');
+            background-repeat:no-repeat; background-position: right 8px center;
+        }
 
-  .gantt-panel { flex:1; display:flex; flex-direction:column; overflow:hidden; }
-  .gantt-scroll { display:flex; flex-direction:column; flex:1; overflow:hidden; }
-  .gantt-time-header { background:#f1f3f4; border-bottom:2px solid #d0d5dd; white-space:nowrap; overflow:hidden; height: var(--time-header-height); }
-  .time-month-row { display:flex; }
-  .time-day-row { display:flex; }
-  .month-label { display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px; color:#444; border-right:1px solid #d0d5dd; padding:0 6px; background:#e8eaef; height:28px; flex-shrink:0; position: relative; }
-  .month-label .calendar-icon { margin-left:4px; font-size:14px; cursor:pointer; opacity:0.5; }
-  .day-cell { display:inline-flex; align-items:center; justify-content:center; font-size:10px; color:#777; border-right:1px solid #eee; min-width:32px; height:28px; flex-shrink:0; }
-  .gantt-body { flex:1; overflow:auto; position:relative; }
-  .gantt-row { position:relative; height: var(--row-height); border-bottom:1px solid #f0f1f3; white-space:nowrap; }
-  .bar-segment { position:absolute; top:50%; transform:translateY(-50%); height:22px; background:var(--blue-bar); border-radius:5px; cursor:pointer; z-index:2; }
-  .bar-segment.status-done { background:var(--green-bar); }
-  .marker { position:absolute; top:50%; transform:translate(-50%,-50%); cursor:pointer; z-index:5; border:2px solid #fff; }
-  .weekend-strip { position:absolute; top:0; bottom:0; width:32px; background:rgba(0,0,0,0.03); pointer-events:none; z-index:0; }
-  .today-line { position:absolute; top:0; bottom:0; width:2px; background:#f59e0b; opacity:0.6; z-index:3; }
+        .gantt-panel { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+        .gantt-scroll { display:flex; flex-direction:column; flex:1; overflow:hidden; }
+        .gantt-time-header { background:#f1f3f4; border-bottom:2px solid #d0d5dd; white-space:nowrap; overflow:hidden; height: var(--time-header-height); }
+        .time-month-row { display:flex; }
+        .time-day-row { display:flex; }
+        .month-label { display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px; color:#444; border-right:1px solid #d0d5dd; padding:0 6px; background:#e8eaef; height:28px; flex-shrink:0; position: relative; }
+        .month-label .calendar-icon { margin-left:4px; font-size:14px; cursor:pointer; opacity:0.5; }
+        .day-cell { display:inline-flex; align-items:center; justify-content:center; font-size:10px; color:#777; border-right:1px solid #eee; min-width:32px; height:28px; flex-shrink:0; }
+        .gantt-body { flex:1; overflow:auto; position:relative; }
+        .gantt-row { position:relative; height: var(--row-height); border-bottom:1px solid #f0f1f3; white-space:nowrap; }
+        .bar-segment { position:absolute; top:50%; transform:translateY(-50%); height:22px; background:var(--blue-bar); border-radius:5px; cursor:pointer; z-index:2; }
+        .bar-segment.status-done { background:var(--green-bar); }
+        .marker { position:absolute; top:50%; transform:translate(-50%,-50%); cursor:pointer; z-index:5; border:2px solid #fff; }
+        .weekend-strip { position:absolute; top:0; bottom:0; width:32px; background:rgba(0,0,0,0.03); pointer-events:none; z-index:0; }
+        .today-line { position:absolute; top:0; bottom:0; width:2px; background:#f59e0b; opacity:0.6; z-index:3; }
 
-  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.35); display:flex; align-items:center; justify-content:center; z-index:100; }
-  .modal { background:#fff; border-radius:12px; padding:24px 24px 20px; box-shadow:0 8px 30px rgba(0,0,0,0.2); min-width:360px; max-width:500px; }
-  .modal h3 { margin-bottom:16px; font-size:16px; }
-  .modal label { display:block; font-size:12px; font-weight:600; color:#333; margin-bottom:6px; }
-  .modal input, .modal select, .modal textarea { width:100%; padding:10px 12px; border:1px solid #d0d5dd; border-radius:6px; font-size:13px; margin-bottom:14px; font-family:inherit; }
-  .modal .btn-row { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; }
- </style>
+        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.35); display:flex; align-items:center; justify-content:center; z-index:100; }
+        .modal { background:#fff; border-radius:12px; padding:24px 24px 20px; box-shadow:0 8px 30px rgba(0,0,0,0.2); min-width:360px; max-width:500px; }
+        .modal h3 { margin-bottom:16px; font-size:16px; }
+        .modal label { display:block; font-size:12px; font-weight:600; color:#333; margin-bottom:6px; }
+        .modal input, .modal select, .modal textarea { width:100%; padding:10px 12px; border:1px solid #d0d5dd; border-radius:6px; font-size:13px; margin-bottom:14px; font-family:inherit; }
+        .modal .btn-row { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; }
+
+        .tooltip {
+            position: fixed; background: #1f2937; color: #fff; padding: 5px 8px;
+            border-radius: 6px; font-size: 11px; pointer-events: none; z-index: 999;
+            opacity: 0; transition: opacity 0.1s; max-width: 300px;
+        }
+    </style>
 </head>
 <body>
- <div id="auth-container" style="display: none;">
-  <h2>Вход в Гант</h2>
-  <input type="text" id="loginInput" placeholder="Логин">
-  <input type="password" id="passwordInput" placeholder="Пароль">
-  <div class="btn-row">
-   <button class="btn accent" id="loginBtn">Войти</button>
-   <button class="btn" id="registerBtn">Регистрация</button>
-  </div>
-  <div style="color:red; font-size:12px; text-align:center;" id="authError"></div>
- </div>
-
- <div id="app-container" style="display: none;">
-  <div class="toolbar">
-   <span class="brand">📊 <span>Гант</span></span>
-   <select class="project-switcher" id="projectSelect"></select>
-   <button class="btn small" id="renameBtn">✏️</button>
-   <button class="btn small" id="newBtn">+ Новый</button>
-   <button class="btn small danger" id="deleteBtn">🗑</button>
-   <button class="btn accent" id="addGroupBtn">+ Группа</button>
-   <button class="btn" id="addTaskBtn">+ Задача</button>
-   <span style="flex:1;"></span>
-   <button class="btn small" id="shareBtn">🔗 Поделиться</button>
-   <button class="btn small" id="logoutBtn">🚪 Выйти</button>
-  </div>
-  <div class="main-container">
-   <div class="left-panel"><div class="table-section">
-    <div class="table-header">
-     <div class="col-status">Статус <button class="add-status-btn" id="manageStatusesBtn">⚙️</button></div>
-     <div class="col-name">Название</div><div class="col-start">Начало</div><div class="col-end">Конец</div><div class="col-drag"></div>
+    <div id="auth-container" style="display: none;">
+        <h2>Вход в Гант</h2>
+        <input type="text" id="loginInput" placeholder="Логин">
+        <input type="password" id="passwordInput" placeholder="Пароль">
+        <div class="btn-row">
+            <button class="btn accent" id="loginBtn">Войти</button>
+            <button class="btn" id="registerBtn">Регистрация</button>
+        </div>
+        <div style="color:red; font-size:12px; text-align:center;" id="authError"></div>
     </div>
-    <div class="table-body" id="tableBody"></div>
-   </div></div>
-   <div class="gantt-panel"><div class="gantt-scroll">
-    <div class="gantt-time-header" id="timeHeader"></div>
-    <div class="gantt-body" id="ganttBody"></div>
-   </div></div>
-  </div>
- </div>
- <div id="modalContainer"></div>
 
- <script>
-  (function() {
-   // ===================== AUTH & STORAGE =====================
-   const USERS_KEY = 'gantt_users';
-   const SESSION_KEY = 'gantt_session';
-   let currentUser = null;
-   let state = {
-    projects: [], activeProjectId: null,
-    customStatuses: ['Не начато','В работе','На проверке','Завершено','Просрочено'],
-    markerTypes: {}
-   };
+    <div id="app-container" style="display: none;">
+        <div class="toolbar">
+            <span class="brand">📊 <span>Гант</span></span>
+            <select class="project-switcher" id="projectSelect"></select>
+            <button class="btn small" id="renameBtn">✏️</button>
+            <button class="btn small" id="newBtn">+ Новый</button>
+            <button class="btn small danger" id="deleteBtn">🗑</button>
+            <button class="btn accent" id="addGroupBtn">+ Группа</button>
+            <button class="btn" id="addTaskBtn">+ Задача</button>
+            <span style="flex:1;"></span>
+            <button class="btn small" id="shareBtn">🔗 Поделиться</button>
+            <button class="btn small" id="logoutBtn">🚪 Выйти</button>
+        </div>
+        <div class="main-container">
+            <div class="left-panel"><div class="table-section">
+                <div class="table-header">
+                    <div class="col-status">Статус <button class="add-status-btn" id="manageStatusesBtn">⚙️</button></div>
+                    <div class="col-name">Название</div><div class="col-start">Начало</div><div class="col-end">Конец</div><div class="col-drag"></div>
+                </div>
+                <div class="table-body" id="tableBody"></div>
+            </div></div>
+            <div class="gantt-panel"><div class="gantt-scroll">
+                <div class="gantt-time-header" id="timeHeader"></div>
+                <div class="gantt-body" id="ganttBody"></div>
+            </div></div>
+        </div>
+    </div>
+    <div id="modalContainer"></div>
+    <div class="tooltip" id="tooltip"></div>
 
-   function getUsers() { try { return JSON.parse(localStorage.getItem(USERS_KEY)) || {}; } catch(e) { return {}; } }
-   function saveUsers(users) { localStorage.setItem(USERS_KEY, JSON.stringify(users)); }
-   function hashPass(p) { return btoa(p); }
-   function getSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch(e) { return null; } }
-   function setSession(username) { localStorage.setItem(SESSION_KEY, JSON.stringify({username, loggedIn:true})); }
-   function clearSession() { localStorage.removeItem(SESSION_KEY); }
+    <script>
+        (function() {
+            // ===================== AUTH & STORAGE =====================
+            const USERS_KEY = 'gantt_users';
+            const SESSION_KEY = 'gantt_session';
+            let currentUser = null;
+            let state = {
+                projects: [], activeProjectId: null,
+                customStatuses: ['Не начато','В работе','На проверке','Завершено','Просрочено'],
+                markerTypes: {}
+            };
 
-   function saveState() {
-    if (!currentUser) return;
-    const users = getUsers();
-    if (users[currentUser]) { users[currentUser].data = state; saveUsers(users); }
-   }
-   function loadState() {
-    const users = getUsers();
-    const user = users[currentUser];
-    if (user && user.data && user.data.projects) { state = user.data; }
-    else {
-     state = { projects: [], activeProjectId: null,
-      customStatuses: ['Не начато','В работе','На проверке','Завершено','Просрочено'],
-      markerTypes: {}
-     };
-    }
-    if (!state.markerTypes || Object.keys(state.markerTypes).length===0) {
-     state.markerTypes = {
-      control: {label:'Контроль', shape:'diamond', color:'#f59e0b'},
-      delivery: {label:'Сдача', shape:'circle', color:'#ef4444'},
-      feedback: {label:'Фидбэк', shape:'circle', color:'#fbbf24'}
-     };
-    }
-    if (!state.customStatuses || !state.customStatuses.length)
-     state.customStatuses = ['Не начато','В работе','На проверке','Завершено','Просрочено'];
-    if (!state.activeProjectId || !state.projects.find(p=>p.id===state.activeProjectId))
-     state.activeProjectId = state.projects.length ? state.projects[0].id : null;
-   }
+            function getUsers() { try { return JSON.parse(localStorage.getItem(USERS_KEY)) || {}; } catch(e) { return {}; } }
+            function saveUsers(users) { localStorage.setItem(USERS_KEY, JSON.stringify(users)); }
+            function hashPass(p) { return btoa(p); }
+            function getSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch(e) { return null; } }
+            function setSession(username) { localStorage.setItem(SESSION_KEY, JSON.stringify({username, loggedIn:true})); }
+            function clearSession() { localStorage.removeItem(SESSION_KEY); }
 
-   function initDefaultIfNeeded() {
-    if (state.projects.length === 0) {
-     state.projects = [{ id: genId(), name:'Мой проект', groups:[
-      { id:'g1', title:'KV', expanded:true, tasks:[
-       { id:'t1', name:'Концепт', status:'Завершено', startDate:'2026-05-04', endDate:'2026-05-09', markers:[] },
-       { id:'t2', name:'Бриф', status:'В работе', startDate:'2026-05-07', endDate:'2026-05-13', markers:[
-        { id:'m1', startDate:'2026-05-10', endDate:'2026-05-11', type:'control', comment:'Утверждение' }
-       ]}
-      ]}
-     ], workingOverrides:{} }];
-     state.activeProjectId = state.projects[0].id;
-    }
-   }
+            function saveState() {
+                if (!currentUser || currentUser.startsWith('guest_')) return;
+                const users = getUsers();
+                if (users[currentUser]) { users[currentUser].data = state; saveUsers(users); }
+            }
+            function loadState() {
+                const users = getUsers();
+                const user = users[currentUser];
+                if (user && user.data && user.data.projects) { state = user.data; }
+                else {
+                    state = { projects: [], activeProjectId: null,
+                        customStatuses: ['Не начато','В работе','На проверке','Завершено','Просрочено'],
+                        markerTypes: {}
+                    };
+                }
+                if (!state.markerTypes || Object.keys(state.markerTypes).length===0) {
+                    state.markerTypes = {
+                        control: {label:'Контроль', shape:'diamond', color:'#f59e0b'},
+                        delivery: {label:'Сдача', shape:'circle', color:'#ef4444'},
+                        feedback: {label:'Фидбэк', shape:'circle', color:'#fbbf24'}
+                    };
+                }
+                if (!state.customStatuses || !state.customStatuses.length)
+                    state.customStatuses = ['Не начато','В работе','На проверке','Завершено','Просрочено'];
+                if (!state.activeProjectId || !state.projects.find(p=>p.id===state.activeProjectId))
+                    state.activeProjectId = state.projects.length ? state.projects[0].id : null;
+            }
 
-   function showAuth() { document.getElementById('auth-container').style.display='flex'; document.getElementById('app-container').style.display='none'; }
-   function showApp() { document.getElementById('auth-container').style.display='none'; document.getElementById('app-container').style.display='flex'; renderAll(); }
+            function showAuth() { document.getElementById('auth-container').style.display='flex'; document.getElementById('app-container').style.display='none'; }
+            function showApp() { document.getElementById('auth-container').style.display='none'; document.getElementById('app-container').style.display='flex'; renderAll(); }
 
-   // ===================== HELPERS (unchanged from v9) =====================
-   function genId() { return Date.now() + '_' + Math.random().toString(36).slice(2,6); }
-   function toLocalISO(date) { const d=new Date(date); return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2); }
-   function isWeekend(date) { const d = new Date(date); return d.getDay()===0 || d.getDay()===6; }
-   function getProject() { return state.projects.find(p => p.id === state.activeProjectId) || null; }
-   function isDayOff(date, project) {
-    const d = typeof date === 'string' ? date : toLocalISO(date);
-    const overrides = project.workingOverrides || {};
-    if (overrides[d] === 'on') return false;
-    if (overrides[d] === 'off') return true;
-    return isWeekend(date);
-   }
-   function getIntervals(task, proj) {
-    const start = new Date(task.startDate), end = new Date(task.endDate);
-    if (isNaN(start) || isNaN(end) || start > end) return [];
-    const intervals = []; let cur = null;
-    let cursor = new Date(start);
-    while (cursor <= end) {
-     if (!isDayOff(cursor, proj)) { if (!cur) cur = {start:new Date(cursor)}; cur.end = new Date(cursor); }
-     else { if (cur) { intervals.push(cur); cur = null; } }
-     cursor.setDate(cursor.getDate()+1);
-    }
-    if (cur) intervals.push(cur);
-    return intervals;
-   }
+            // ===================== HELPERS =====================
+            function genId() { return Date.now() + '_' + Math.random().toString(36).slice(2,6); }
+            function toLocalISO(date) { const d=new Date(date); return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2); }
+            function isWeekend(date) { const d = new Date(date); return d.getDay()===0 || d.getDay()===6; }
+            function getProject() { return state.projects.find(p => p.id === state.activeProjectId) || null; }
+            function isDayOff(date, project) {
+                const d = typeof date === 'string' ? date : toLocalISO(date);
+                const overrides = project.workingOverrides || {};
+                if (overrides[d] === 'on') return false;
+                if (overrides[d] === 'off') return true;
+                return isWeekend(date);
+            }
+            function getIntervals(task, proj) {
+                const start = new Date(task.startDate), end = new Date(task.endDate);
+                if (isNaN(start) || isNaN(end) || start > end) return [];
+                const intervals = []; let cur = null;
+                let cursor = new Date(start);
+                while (cursor <= end) {
+                    if (!isDayOff(cursor, proj)) { if (!cur) cur = {start:new Date(cursor)}; cur.end = new Date(cursor); }
+                    else { if (cur) { intervals.push(cur); cur = null; } }
+                    cursor.setDate(cursor.getDate()+1);
+                }
+                if (cur) intervals.push(cur);
+                return intervals;
+            }
 
-   // ===================== RENDER (unchanged, but all save() replaced by saveState()) =====================
-   function renderAll() { if(!currentUser) return; renderProjectSelect(); renderTable(); renderGantt(); }
-   function renderProjectSelect() {
-    const sel = document.getElementById('projectSelect');
-    sel.innerHTML = state.projects.map(p => `<option value="${p.id}" ${p.id===state.activeProjectId?'selected':''}>${escapeHtml(p.name)}</option>`).join('');
-    sel.onchange = () => { state.activeProjectId = sel.value; saveState(); renderAll(); };
-   }
+            function closeModal() { document.getElementById('modalContainer').innerHTML = ''; }
+            function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+            window.closeModal = closeModal;
+            // ===================== RENDER =====================
+            function renderAll() { if(!currentUser) return; renderProjectSelect(); renderTable(); renderGantt(); }
+            function renderProjectSelect() {
+                const sel = document.getElementById('projectSelect');
+                sel.innerHTML = state.projects.map(p => `<option value="${p.id}" ${p.id===state.activeProjectId?'selected':''}>${escapeHtml(p.name)}</option>`).join('');
+                sel.onchange = () => { state.activeProjectId = sel.value; saveState(); renderAll(); };
+            }
 
-   function renderTable() {
-    const proj = getProject();
-    const tbody = document.getElementById('tableBody');
-    if (!proj || proj.groups.length===0) { tbody.innerHTML = '<div style="padding:20px;">Нет данных</div>'; return; }
-    let html = '';
-    proj.groups.forEach(g => {
-     html += `<div class="row group${g.expanded?'':' collapsed'}" data-group-id="${g.id}"><div class="col-status"></div><div class="col-name"><span class="expand-icon">▼</span><input class="name-input" value="${escapeHtml(g.title)}" data-id="${g.id}"></div><div class="col-start"></div><div class="col-end"></div><div class="col-drag"></div></div>`;
-     if (g.expanded) g.tasks.forEach((t, idx) => {
-      const statusOptions = state.customStatuses.map(s => `<option value="${s}" ${t.status===s?'selected':''}>${s}</option>`).join('');
-      const doneClass = t.status === 'Завершено' ? ' status-done-bg' : '';
-      html += `<div class="row task${doneClass}" data-task-id="${t.id}" data-group-id="${g.id}" data-idx="${idx}" draggable="true"><div class="col-status"><select class="status-select">${statusOptions}</select></div><div class="col-name"><input class="name-input" value="${escapeHtml(t.name)}" data-id="${t.id}"></div><div class="col-start"><input type="date" class="date-input-field" value="${t.startDate}" data-id="${t.id}" data-field="startDate"></div><div class="col-end"><input type="date" class="date-input-field" value="${t.endDate}" data-id="${t.id}" data-field="endDate"></div><div class="col-drag"><span class="drag-handle">⋮⋮</span></div></div>`;
-     });
-    });
-    tbody.innerHTML = html;
-    attachTableEvents();
-   }
+            function renderTable() {
+                const proj = getProject();
+                const tbody = document.getElementById('tableBody');
+                if (!proj || proj.groups.length===0) { tbody.innerHTML = '<div style="padding:20px;">Нет данных</div>'; return; }
+                let html = '';
+                proj.groups.forEach(g => {
+                    html += `<div class="row group${g.expanded?'':' collapsed'}" data-group-id="${g.id}"><div class="col-status"></div><div class="col-name"><span class="expand-icon">▼</span><input class="name-input" value="${escapeHtml(g.title)}" data-id="${g.id}"></div><div class="col-start"></div><div class="col-end"></div><div class="col-drag"></div></div>`;
+                    if (g.expanded) g.tasks.forEach((t, idx) => {
+                        const statusOptions = state.customStatuses.map(s => `<option value="${s}" ${t.status===s?'selected':''}>${s}</option>`).join('');
+                        const doneClass = t.status === 'Завершено' ? ' status-done-bg' : '';
+                        html += `<div class="row task${doneClass}" data-task-id="${t.id}" data-group-id="${g.id}" data-idx="${idx}" draggable="true"><div class="col-status"><select class="status-select">${statusOptions}</select></div><div class="col-name"><input class="name-input" value="${escapeHtml(t.name)}" data-id="${t.id}"></div><div class="col-start"><input type="date" class="date-input-field" value="${t.startDate}" data-id="${t.id}" data-field="startDate"></div><div class="col-end"><input type="date" class="date-input-field" value="${t.endDate}" data-id="${t.id}" data-field="endDate"></div><div class="col-drag"><span class="drag-handle">⋮⋮</span></div></div>`;
+                    });
+                });
+                tbody.innerHTML = html;
+                attachTableEvents();
+            }
 
-   function attachTableEvents() {
-    document.querySelectorAll('.row.group').forEach(row => {
-     row.addEventListener('click', function(e) {
-      if (e.target.tagName === 'INPUT' || e.target.closest('.drag-handle')) return;
-      toggleGroup(this.dataset.groupId);
-     });
-    });
-    document.querySelectorAll('.name-input').forEach(inp => inp.addEventListener('change', function() {
-     const id = this.dataset.id;
-     if (this.closest('.row.group')) updateGroupTitle(id, this.value);
-     else updateTaskName(id, this.value);
-    }));
-    document.querySelectorAll('.status-select').forEach(sel => sel.addEventListener('change', function() {
-     updateTaskStatus(this.closest('.row').dataset.taskId, this.value);
-    }));
-    document.querySelectorAll('.date-input-field').forEach(inp => inp.addEventListener('change', function() {
-     updateTaskDate(this.dataset.id, this.dataset.field, this.value);
-    }));
+            function attachTableEvents() {
+                document.querySelectorAll('.row.group').forEach(row => {
+                    row.addEventListener('click', function(e) {
+                        if (e.target.tagName === 'INPUT' || e.target.closest('.drag-handle')) return;
+                        toggleGroup(this.dataset.groupId);
+                    });
+                });
+                document.querySelectorAll('.name-input').forEach(inp => inp.addEventListener('change', function() {
+                    const id = this.dataset.id;
+                    if (this.closest('.row.group')) updateGroupTitle(id, this.value);
+                    else updateTaskName(id, this.value);
+                }));
+                document.querySelectorAll('.status-select').forEach(sel => sel.addEventListener('change', function() {
+                    updateTaskStatus(this.closest('.row').dataset.taskId, this.value);
+                }));
+                document.querySelectorAll('.date-input-field').forEach(inp => inp.addEventListener('change', function() {
+                    updateTaskDate(this.dataset.id, this.dataset.field, this.value);
+                }));
 
-    let dragSrcId = null, dragSrcGroup = null, dragSrcIdx = null;
-    document.querySelectorAll('.row.task').forEach(row => {
-     row.addEventListener('dragstart', function(e) {
-      dragSrcId = this.dataset.taskId; dragSrcGroup = this.dataset.groupId; dragSrcIdx = parseInt(this.dataset.idx);
-      e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', this.dataset.taskId);
-      this.style.opacity = '0.4';
-     });
-     row.addEventListener('dragend', function() { this.style.opacity = '1'; });
-     row.addEventListener('dragover', function(e) { e.preventDefault(); this.style.borderTop = '2px solid var(--blue)'; });
-     row.addEventListener('dragleave', function() { this.style.borderTop = ''; });
-     row.addEventListener('drop', function(e) {
-      e.preventDefault(); this.style.borderTop = '';
-      if (dragSrcId) moveTask(dragSrcId, dragSrcGroup, dragSrcIdx, this.dataset.groupId, parseInt(this.dataset.idx));
-      dragSrcId = null;
-     });
-    });
-    document.querySelectorAll('.row.group').forEach(group => {
-     group.addEventListener('dragover', function(e) { e.preventDefault(); this.style.background = '#e2e8f0'; });
-     group.addEventListener('dragleave', function() { this.style.background = ''; });
-     group.addEventListener('drop', function(e) {
-      e.preventDefault(); this.style.background = '';
-      if (dragSrcId) moveTask(dragSrcId, dragSrcGroup, dragSrcIdx, this.dataset.groupId, undefined);
-      dragSrcId = null;
-     });
-    });
-   }
+                let dragSrcId = null, dragSrcGroup = null, dragSrcIdx = null;
+                document.querySelectorAll('.row.task').forEach(row => {
+                    row.addEventListener('dragstart', function(e) {
+                        dragSrcId = this.dataset.taskId; dragSrcGroup = this.dataset.groupId; dragSrcIdx = parseInt(this.dataset.idx);
+                        e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', this.dataset.taskId);
+                        this.style.opacity = '0.4';
+                    });
+                    row.addEventListener('dragend', function() { this.style.opacity = '1'; });
+                    row.addEventListener('dragover', function(e) { e.preventDefault(); this.style.borderTop = '2px solid var(--blue)'; });
+                    row.addEventListener('dragleave', function() { this.style.borderTop = ''; });
+                    row.addEventListener('drop', function(e) {
+                        e.preventDefault(); this.style.borderTop = '';
+                        if (dragSrcId) moveTask(dragSrcId, dragSrcGroup, dragSrcIdx, this.dataset.groupId, parseInt(this.dataset.idx));
+                        dragSrcId = null;
+                    });
+                });
+                document.querySelectorAll('.row.group').forEach(group => {
+                    group.addEventListener('dragover', function(e) { e.preventDefault(); this.style.background = '#e2e8f0'; });
+                    group.addEventListener('dragleave', function() { this.style.background = ''; });
+                    group.addEventListener('drop', function(e) {
+                        e.preventDefault(); this.style.background = '';
+                        if (dragSrcId) moveTask(dragSrcId, dragSrcGroup, dragSrcIdx, this.dataset.groupId, undefined);
+                        dragSrcId = null;
+                    });
+                });
+            }
 
-   function moveTask(taskId, fromGroupId, fromIdx, toGroupId, toIdx) {
-    const proj = getProject();
-    const fromGroup = proj.groups.find(g => g.id === fromGroupId); if (!fromGroup) return;
-    const task = fromGroup.tasks[fromIdx]; if (!task || task.id !== taskId) return;
-    fromGroup.tasks.splice(fromIdx, 1);
-    if (toGroupId === fromGroupId) {
-     const insertIdx = (toIdx !== undefined) ? (toIdx > fromIdx ? toIdx-1 : toIdx) : fromGroup.tasks.length;
-     fromGroup.tasks.splice(insertIdx, 0, task);
-    } else {
-     const toGroup = proj.groups.find(g => g.id === toGroupId);
-     if (toGroup) toGroup.tasks.splice(toIdx ?? toGroup.tasks.length, 0, task);
-    }
-    saveState(); renderAll();
-   }
+            function moveTask(taskId, fromGroupId, fromIdx, toGroupId, toIdx) {
+                const proj = getProject();
+                const fromGroup = proj.groups.find(g => g.id === fromGroupId); if (!fromGroup) return;
+                const task = fromGroup.tasks[fromIdx]; if (!task || task.id !== taskId) return;
+                fromGroup.tasks.splice(fromIdx, 1);
+                if (toGroupId === fromGroupId) {
+                    const insertIdx = (toIdx !== undefined) ? (toIdx > fromIdx ? toIdx-1 : toIdx) : fromGroup.tasks.length;
+                    fromGroup.tasks.splice(insertIdx, 0, task);
+                } else {
+                    const toGroup = proj.groups.find(g => g.id === toGroupId);
+                    if (toGroup) toGroup.tasks.splice(toIdx ?? toGroup.tasks.length, 0, task);
+                }
+                saveState(); renderAll();
+            }
 
-   function renderGantt() {
-    const proj = getProject();
-    const header = document.getElementById('timeHeader'), body = document.getElementById('ganttBody');
-    if (!proj || proj.groups.length===0) { header.innerHTML=''; body.innerHTML=''; return; }
-    let minD=null, maxD=null;
-    proj.groups.forEach(g=>g.tasks.forEach(t=>{
-     const s=new Date(t.startDate), e=new Date(t.endDate);
-     if(!isNaN(s)){ if(!minD||s<minD) minD=s; if(!maxD||s>maxD) maxD=s; }
-     if(!isNaN(e)){ if(!minD||e<minD) minD=e; if(!maxD||e>maxD) maxD=e; }
-    }));
-    if(!minD){ minD=new Date(); maxD=new Date(); maxD.setDate(maxD.getDate()+30); }
-    minD=new Date(minD); minD.setDate(minD.getDate()-3); maxD=new Date(maxD); maxD.setDate(maxD.getDate()+10);
-    const totalDays=Math.ceil((maxD-minD)/86400000), totalWidth=totalDays*32;
-    let monthsHtml='<div class="time-month-row">';
-    const months=[]; let cursor=new Date(minD);
-    while(cursor<=maxD){
-     const key=cursor.getFullYear()+'-'+(cursor.getMonth()+1);
-     if(!months.find(m=>m.key===key)) months.push({key, label:cursor.toLocaleDateString('ru-RU',{month:'long',year:'numeric'}), startDay:Math.ceil((cursor-minD)/86400000)});
-     cursor.setDate(cursor.getDate()+1);
-    }
-    for(let i=0;i<months.length;i++){ const m=months[i], next=i+1<months.length?months[i+1].startDay:totalDays; monthsHtml+=`<div class="month-label" style="width:${(next-m.startDay)*32}px;" data-month-key="${m.key}">${m.label} <span class="calendar-icon">📅</span></div>`; }
-    monthsHtml+='</div><div class="time-day-row">';
-    for(let d=0;d<totalDays;d++){ const date=new Date(minD); date.setDate(date.getDate()+d); monthsHtml+=`<div class="day-cell${isWeekend(date)?' weekend':''}${date.toDateString()===new Date().toDateString()?' today':''}" style="min-width:32px;">${date.getDate()}</div>`; }
-    header.innerHTML=monthsHtml;
-    document.querySelectorAll('.calendar-icon').forEach(icon=>icon.addEventListener('click', e=>{ e.stopPropagation(); openMonthCalendar(icon.parentElement.dataset.monthKey); }));
-    let bodyHtml=`<div style="position:relative; width:${totalWidth}px; min-width:100%;">`;
-    for(let d=0;d<totalDays;d++){ const date=new Date(minD); date.setDate(date.getDate()+d); if(isDayOff(date,proj)) bodyHtml+=`<div class="weekend-strip" style="left:${d*32}px; width:32px;"></div>`; }
-    const today=new Date(); if(today>=minD && today<=maxD) bodyHtml+=`<div class="today-line" style="left:${Math.ceil((today-minD)/86400000)*32}px;"></div>`;
-    proj.groups.forEach(g=>{
-     bodyHtml+=`<div class="gantt-row group" style="width:${totalWidth}px;"></div>`;
-     if(g.expanded) g.tasks.forEach(t=>{
-      const intervals=getIntervals(t,proj);
-      if(!intervals.length) bodyHtml+=`<div class="gantt-row" style="width:${totalWidth}px;"></div>`;
-      else {
-       let segs='';
-       intervals.forEach(seg=>{
-        const left=Math.round((seg.start-minD)/86400000)*32, width=(Math.round((seg.end-seg.start)/86400000)+1)*32;
-        const done=t.status==='Завершено'?' status-done':'';
-        segs+=`<div class="bar-segment${done}" style="left:${left}px;width:${width}px;" data-task-id="${t.id}">`;
-        t.markers.forEach(m=>{
-         const ms=new Date(m.startDate), me=new Date(m.endDate||m.startDate);
-         if(isNaN(ms)) return;
-         const sx=((ms-minD)/86400000*32)-left+16, ex=((me-minD)/86400000*32)-left+16;
-         const style=getMarkerStyle(m.type);
-         if(m.startDate===m.endDate) segs+=`<div class="marker" style="left:${sx}px; width:${style.size}px; height:${style.size}px; background:${style.color}; border-radius:${style.radius};" data-marker-id="${m.id}" data-task-id="${t.id}"></div>`;
-         else {
-          segs+=`<div style="position:absolute; left:${Math.min(sx,ex)-2}px; top:50%; transform:translateY(-50%); height:4px; width:${Math.abs(ex-sx)+4}px; background:${style.color}; opacity:0.7; z-index:1;"></div>`;
-          segs+=`<div class="marker" style="left:${sx}px; width:${style.size}px; height:${style.size}px; background:${style.color}; border-radius:${style.radius};" data-marker-id="${m.id}" data-task-id="${t.id}"></div>`;
-          segs+=`<div class="marker" style="left:${ex}px; width:${style.size}px; height:${style.size}px; background:${style.color}; border-radius:${style.radius};"></div>`;
-         }
-        });
-        segs+='</div>';
-       });
-       bodyHtml+=`<div class="gantt-row" style="width:${totalWidth}px;">${segs}</div>`;
-      }
-     });
-    });
-    bodyHtml+='</div>';
-    body.innerHTML=bodyHtml;
-    const bodyEl=document.getElementById('ganttBody');
-    bodyEl.onscroll=()=>{ document.getElementById('timeHeader').scrollLeft=bodyEl.scrollLeft; document.getElementById('tableBody').scrollTop=bodyEl.scrollTop; };
-    document.getElementById('tableBody').onscroll=()=>{ bodyEl.scrollTop=document.getElementById('tableBody').scrollTop; };
-    bodyEl.onclick=e=>{
-     const marker=e.target.closest('.marker');
-     if(marker){ e.stopPropagation(); handleMarkerClick(marker.dataset.taskId, marker.dataset.markerId); return; }
-     const seg=e.target.closest('.bar-segment');
-     if(seg) handleBarClick(seg.dataset.taskId, e);
-    };
-   }
+            function renderGantt() {
+                const proj = getProject();
+                const header = document.getElementById('timeHeader'), body = document.getElementById('ganttBody');
+                if (!proj || proj.groups.length===0) { header.innerHTML=''; body.innerHTML=''; return; }
+                let minD=null, maxD=null;
+                proj.groups.forEach(g=>g.tasks.forEach(t=>{
+                    const s=new Date(t.startDate), e=new Date(t.endDate);
+                    if(!isNaN(s)){ if(!minD||s<minD) minD=s; if(!maxD||s>maxD) maxD=s; }
+                    if(!isNaN(e)){ if(!minD||e<minD) minD=e; if(!maxD||e>maxD) maxD=e; }
+                }));
+                if(!minD){ minD=new Date(); maxD=new Date(); maxD.setDate(maxD.getDate()+30); }
+                minD=new Date(minD); minD.setDate(minD.getDate()-3); maxD=new Date(maxD); maxD.setDate(maxD.getDate()+10);
+                const totalDays=Math.ceil((maxD-minD)/86400000), totalWidth=totalDays*32;
+                let monthsHtml='<div class="time-month-row">';
+                const months=[]; let cursor=new Date(minD);
+                while(cursor<=maxD){
+                    const key=cursor.getFullYear()+'-'+(cursor.getMonth()+1);
+                    if(!months.find(m=>m.key===key)) months.push({key, label:cursor.toLocaleDateString('ru-RU',{month:'long',year:'numeric'}), startDay:Math.ceil((cursor-minD)/86400000)});
+                    cursor.setDate(cursor.getDate()+1);
+                }
+                for(let i=0;i<months.length;i++){ const m=months[i], next=i+1<months.length?months[i+1].startDay:totalDays; monthsHtml+=`<div class="month-label" style="width:${(next-m.startDay)*32}px;" data-month-key="${m.key}">${m.label} <span class="calendar-icon">📅</span></div>`; }
+                monthsHtml+='</div><div class="time-day-row">';
+                for(let d=0;d<totalDays;d++){ const date=new Date(minD); date.setDate(date.getDate()+d); monthsHtml+=`<div class="day-cell${isWeekend(date)?' weekend':''}${date.toDateString()===new Date().toDateString()?' today':''}" style="min-width:32px;">${date.getDate()}</div>`; }
+                header.innerHTML=monthsHtml;
+                document.querySelectorAll('.calendar-icon').forEach(icon=>icon.addEventListener('click', e=>{ e.stopPropagation(); openMonthCalendar(icon.parentElement.dataset.monthKey); }));
+                let bodyHtml=`<div style="position:relative; width:${totalWidth}px; min-width:100%;">`;
+                for(let d=0;d<totalDays;d++){ const date=new Date(minD); date.setDate(date.getDate()+d); if(isDayOff(date,proj)) bodyHtml+=`<div class="weekend-strip" style="left:${d*32}px; width:32px;"></div>`; }
+                const today=new Date(); if(today>=minD && today<=maxD) bodyHtml+=`<div class="today-line" style="left:${Math.ceil((today-minD)/86400000)*32}px;"></div>`;
+                proj.groups.forEach(g=>{
+                    bodyHtml+=`<div class="gantt-row group" style="width:${totalWidth}px;"></div>`;
+                    if(g.expanded) g.tasks.forEach(t=>{
+                        const intervals=getIntervals(t,proj);
+                        if(!intervals.length) bodyHtml+=`<div class="gantt-row" style="width:${totalWidth}px;"></div>`;
+                        else {
+                            let segs='';
+                            intervals.forEach(seg=>{
+                                const left=Math.round((seg.start-minD)/86400000)*32, width=(Math.round((seg.end-seg.start)/86400000)+1)*32;
+                                const done=t.status==='Завершено'?' status-done':'';
+                                segs+=`<div class="bar-segment${done}" style="left:${left}px;width:${width}px;" data-task-id="${t.id}">`;
+                                t.markers.forEach(m=>{
+                                    const ms=new Date(m.startDate), me=new Date(m.endDate||m.startDate);
+                                    if(isNaN(ms)) return;
+                                    const sx=((ms-minD)/86400000*32)-left+16, ex=((me-minD)/86400000*32)-left+16;
+                                    const style=getMarkerStyle(m.type);
+                                    if(m.startDate===m.endDate) segs+=`<div class="marker" style="left:${sx}px; width:${style.size}px; height:${style.size}px; background:${style.color}; border-radius:${style.radius};" data-marker-id="${m.id}" data-task-id="${t.id}"></div>`;
+                                    else {
+                                        segs+=`<div style="position:absolute; left:${Math.min(sx,ex)-2}px; top:50%; transform:translateY(-50%); height:4px; width:${Math.abs(ex-sx)+4}px; background:${style.color}; opacity:0.7; z-index:1;"></div>`;
+                                        segs+=`<div class="marker" style="left:${sx}px; width:${style.size}px; height:${style.size}px; background:${style.color}; border-radius:${style.radius};" data-marker-id="${m.id}" data-task-id="${t.id}"></div>`;
+                                        segs+=`<div class="marker" style="left:${ex}px; width:${style.size}px; height:${style.size}px; background:${style.color}; border-radius:${style.radius};"></div>`;
+                                    }
+                                });
+                                segs+='</div>';
+                            });
+                            bodyHtml+=`<div class="gantt-row" style="width:${totalWidth}px;">${segs}</div>`;
+                        }
+                    });
+                });
+                bodyHtml+='</div>';
+                body.innerHTML=bodyHtml;
+                const bodyEl=document.getElementById('ganttBody');
+                bodyEl.onscroll=()=>{ document.getElementById('timeHeader').scrollLeft=bodyEl.scrollLeft; document.getElementById('tableBody').scrollTop=bodyEl.scrollTop; };
+                document.getElementById('tableBody').onscroll=()=>{ bodyEl.scrollTop=document.getElementById('tableBody').scrollTop; };
+                bodyEl.onclick=e=>{
+                    const marker=e.target.closest('.marker');
+                    if(marker){ e.stopPropagation(); handleMarkerClick(marker.dataset.taskId, marker.dataset.markerId); return; }
+                    const seg=e.target.closest('.bar-segment');
+                    if(seg) handleBarClick(seg.dataset.taskId, e);
+                };
+                bodyEl.onmouseover=function(e){
+                    const marker=e.target.closest('.marker');
+                    if(marker){
+                        const taskId=marker.dataset.taskId;
+                        const proj=getProject();
+                        const task=proj.groups.flatMap(g=>g.tasks).find(t=>t.id===taskId);
+                        if(task){
+                            const m=task.markers.find(m=>m.id===marker.dataset.markerId);
+                            if(m){
+                                const label=state.markerTypes[m.type]?.label||m.type;
+                                showTooltip(e.clientX,e.clientY,`${label}: ${m.comment||''} (${toLocalISO(m.startDate)}${m.startDate!==m.endDate?'-'+toLocalISO(m.endDate):''})`);
+                                return;
+                            }
+                        }
+                    }
+                    hideTooltip();
+                };
+                bodyEl.onmouseout=function(e){ if(!e.target.closest('.marker')) hideTooltip(); };
+            }
 
-   function getMarkerStyle(type) {
-    const def = state.markerTypes[type] || state.markerTypes['control'];
-    let radius='2px', size=10;
-    if(def.shape==='circle'){ radius='50%'; size=12; }
-    else if(def.shape==='diamond'){ radius='2px'; size=10; }
-    else { radius='2px'; size=12; }
-    return { color:def.color, shape:def.shape, radius, size };
-   }
+            function getMarkerStyle(type) {
+                const def = state.markerTypes[type] || state.markerTypes['control'];
+                let radius='2px', size=10;
+                if(def.shape==='circle'){ radius='50%'; size=12; }
+                else if(def.shape==='diamond'){ radius='2px'; size=10; }
+                else { radius='2px'; size=12; }
+                return { color:def.color, shape:def.shape, radius, size };
+            }
 
-   function openMonthCalendar(monthKey) {
-    const proj = getProject();
-    const [year, month] = monthKey.split('-').map(Number);
-    const firstDay = new Date(year, month-1, 1), lastDay = new Date(year, month, 0);
-    let html = `<h3>Выходные (${firstDay.toLocaleDateString('ru-RU',{month:'long',year:'numeric'})})</h3>`;
-    html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">';
-    for (let d=new Date(firstDay); d<=lastDay; d.setDate(d.getDate()+1)) {
-     const ds = toLocalISO(d), off = isDayOff(ds, proj);
-     html += `<div style="background:${off?'#fecaca':'#e8f5e9'}; padding:4px; text-align:center; cursor:pointer; border-radius:4px;" data-date="${ds}" class="day-toggle">${d.getDate()}</div>`;
-    }
-    html += '</div><div class="btn-row"><button class="btn" onclick="closeModal()">Отмена</button></div>';
-    document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay"><div class="modal" onclick="event.stopPropagation()">${html}</div></div>`;
-    document.querySelectorAll('.day-toggle').forEach(el => el.addEventListener('click', function(){
-     const ds = this.dataset.date;
-     const ov = proj.workingOverrides || {};
-     if (ov[ds]==='off') delete ov[ds];
-     else if (ov[ds]==='on') ov[ds]='off';
-     else if (isWeekend(ds)) ov[ds]='on';
-     else ov[ds]='off';
-     proj.workingOverrides = ov;
-     saveState(); renderAll();
-    }));
-   }
+            function openMonthCalendar(monthKey) {
+                const proj = getProject();
+                const [year, month] = monthKey.split('-').map(Number);
+                const firstDay = new Date(year, month-1, 1), lastDay = new Date(year, month, 0);
+                let html = `<h3>Выходные (${firstDay.toLocaleDateString('ru-RU',{month:'long',year:'numeric'})})</h3>`;
+                html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">';
+                for (let d=new Date(firstDay); d<=lastDay; d.setDate(d.getDate()+1)) {
+                    const ds = toLocalISO(d), off = isDayOff(ds, proj);
+                    html += `<div style="background:${off?'#fecaca':'#e8f5e9'}; padding:4px; text-align:center; cursor:pointer; border-radius:4px;" data-date="${ds}" class="day-toggle">${d.getDate()}</div>`;
+                }
+                html += '</div><div class="btn-row"><button class="btn" onclick="closeModal()">Отмена</button></div>';
+                document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay"><div class="modal" onclick="event.stopPropagation()">${html}</div></div>`;
+                document.querySelectorAll('.day-toggle').forEach(el => el.addEventListener('click', function(){
+                    const ds = this.dataset.date;
+                    const ov = proj.workingOverrides || {};
+                    if (ov[ds]==='off') delete ov[ds];
+                    else if (ov[ds]==='on') ov[ds]='off';
+                    else if (isWeekend(ds)) ov[ds]='on';
+                    else ov[ds]='off';
+                    proj.workingOverrides = ov;
+                    saveState(); renderAll();
+                }));
+            }
 
-   function handleBarClick(taskId, e) {
-    const proj = getProject(); if (!proj) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const dayOffset = Math.floor((e.clientX - rect.left) / 32);
-    const minD = getMinDate(proj); const date = new Date(minD); date.setDate(date.getDate()+dayOffset);
-    showMarkerModal(taskId, toLocalISO(date));
-   }
-   function getMinDate(proj) { let min=null; proj.groups.forEach(g=>g.tasks.forEach(t=>{ const s=new Date(t.startDate); if(!isNaN(s)&&(!min||s<min))min=s;})); return min||new Date(); }
-   function handleMarkerClick(taskId, markerId) {
-    const proj = getProject();
-    const task = proj.groups.flatMap(g=>g.tasks).find(t=>t.id===taskId);
-    if (task) { const m = task.markers.find(m=>m.id===markerId); if (m) showMarkerEditModal(taskId, m); }
-   }
+            function handleBarClick(taskId, e) {
+                const proj = getProject(); if (!proj) return;
+                const rect = e.currentTarget.getBoundingClientRect();
+                const dayOffset = Math.floor((e.clientX - rect.left) / 32);
+                const minD = getMinDate(proj); const date = new Date(minD); date.setDate(date.getDate()+dayOffset);
+                showMarkerModal(taskId, toLocalISO(date));
+            }
+            function getMinDate(proj) { let min=null; proj.groups.forEach(g=>g.tasks.forEach(t=>{ const s=new Date(t.startDate); if(!isNaN(s)&&(!min||s<min))min=s;})); return min||new Date(); }
+            function handleMarkerClick(taskId, markerId) {
+                const proj = getProject();
+                const task = proj.groups.flatMap(g=>g.tasks).find(t=>t.id===taskId);
+                if (task) { const m = task.markers.find(m=>m.id===markerId); if (m) showMarkerEditModal(taskId, m); }
+            }
 
-   // ===================== MODALS (unchanged, only saveState instead of save) =====================
-   function showMarkerModal(taskId, startDate) {
-    const typesHtml = Object.entries(state.markerTypes).map(([t,o]) => `<option value="${t}">${o.label}</option>`).join('');
-    document.getElementById('modalContainer').innerHTML = `
-    <div class="modal-overlay" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()">
-     <h3>Новая точка</h3>
-     <label>Дата начала</label><input type="date" id="mStart" value="${startDate}">
-     <label><input type="checkbox" id="mRange" onchange="document.getElementById('mEnd').disabled=!this.checked"> Промежуток</label>
-     <label>Дата окончания</label><input type="date" id="mEnd" disabled>
-     <label>Тип</label><select id="mType">${typesHtml}</select>
-     <button class="btn small" id="manageTypesBtn">⚙️ Типы</button>
-     <label>Комментарий</label><textarea id="mComment"></textarea>
-     <div class="btn-row"><button class="btn" onclick="closeModal()">Отмена</button><button class="btn accent" id="saveBtn">Сохранить</button></div>
-    </div></div>`;
-    document.getElementById('saveBtn').onclick = () => {
-     const s = document.getElementById('mStart').value, range = document.getElementById('mRange').checked;
-     const e = range ? document.getElementById('mEnd').value : s;
-     const type = document.getElementById('mType').value, comment = document.getElementById('mComment').value;
-     addMarker(taskId, s, e, type, comment); closeModal();
-    };
-    document.getElementById('manageTypesBtn').onclick = () => showTypeManager();
-   }
+            function showMarkerModal(taskId, startDate) {
+                const typesHtml = Object.entries(state.markerTypes).map(([t,o]) => `<option value="${t}">${o.label}</option>`).join('');
+                document.getElementById('modalContainer').innerHTML = `
+                <div class="modal-overlay" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()">
+                    <h3>Новая точка</h3>
+                    <label>Дата начала</label><input type="date" id="mStart" value="${startDate}">
+                    <label><input type="checkbox" id="mRange" onchange="document.getElementById('mEnd').disabled=!this.checked"> Промежуток</label>
+                    <label>Дата окончания</label><input type="date" id="mEnd" disabled>
+                    <label>Тип</label><select id="mType">${typesHtml}</select>
+                    <button class="btn small" onclick="event.stopPropagation();window.showTypeManager()">⚙️ Типы</button>
+                    <label>Комментарий</label><textarea id="mComment"></textarea>
+                    <div class="btn-row"><button class="btn" onclick="closeModal()">Отмена</button><button class="btn accent" id="saveBtn">Сохранить</button></div>
+                </div></div>`;
+                document.getElementById('saveBtn').onclick = () => {
+                    const s = document.getElementById('mStart').value, range = document.getElementById('mRange').checked;
+                    const e = range ? document.getElementById('mEnd').value : s;
+                    const type = document.getElementById('mType').value, comment = document.getElementById('mComment').value;
+                    addMarker(taskId, s, e, type, comment); closeModal();
+                };
+            }
 
-   function showMarkerEditModal(taskId, marker) {
-    const typesHtml = Object.entries(state.markerTypes).map(([t,o]) => `<option value="${t}" ${marker.type===t?'selected':''}>${o.label}</option>`).join('');
-    document.getElementById('modalContainer').innerHTML = `
-    <div class="modal-overlay" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()">
-     <h3>Редактировать точку</h3>
-     <label>Дата начала</label><input type="date" id="mStart" value="${marker.startDate}">
-     <label><input type="checkbox" id="mRange" ${marker.startDate!==marker.endDate?'checked':''} onchange="document.getElementById('mEnd').disabled=!this.checked"> Промежуток</label>
-     <label>Дата окончания</label><input type="date" id="mEnd" value="${marker.endDate||marker.startDate}" ${marker.startDate!==marker.endDate?'':'disabled'}>
-     <label>Тип</label><select id="mType">${typesHtml}</select>
-     <button class="btn small" id="manageTypesBtn">⚙️ Типы</button>
-     <label>Комментарий</label><textarea id="mComment">${escapeHtml(marker.comment||'')}</textarea>
-     <div class="btn-row"><button class="btn danger" id="delBtn">Удалить</button><button class="btn" onclick="closeModal()">Отмена</button><button class="btn accent" id="saveBtn">Сохранить</button></div>
-    </div></div>`;
-    document.getElementById('saveBtn').onclick = () => {
-     const s = document.getElementById('mStart').value, range = document.getElementById('mRange').checked;
-     const e = range ? document.getElementById('mEnd').value : s;
-     updateMarker(taskId, marker.id, { startDate:s, endDate:e, type:document.getElementById('mType').value, comment:document.getElementById('mComment').value });
-     closeModal();
-    };
-    document.getElementById('delBtn').onclick = () => { if(confirm('Удалить?')) { deleteMarker(taskId, marker.id); closeModal(); } };
-    document.getElementById('manageTypesBtn').onclick = () => showTypeManager();
-   }
+            function showMarkerEditModal(taskId, marker) {
+                const typesHtml = Object.entries(state.markerTypes).map(([t,o]) => `<option value="${t}" ${marker.type===t?'selected':''}>${o.label}</option>`).join('');
+                document.getElementById('modalContainer').innerHTML = `
+                <div class="modal-overlay" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()">
+                    <h3>Редактировать точку</h3>
+                    <label>Дата начала</label><input type="date" id="mStart" value="${marker.startDate}">
+                    <label><input type="checkbox" id="mRange" ${marker.startDate!==marker.endDate?'checked':''} onchange="document.getElementById('mEnd').disabled=!this.checked"> Промежуток</label>
+                    <label>Дата окончания</label><input type="date" id="mEnd" value="${marker.endDate||marker.startDate}" ${marker.startDate!==marker.endDate?'':'disabled'}>
+                    <label>Тип</label><select id="mType">${typesHtml}</select>
+                    <button class="btn small" onclick="event.stopPropagation();window.showTypeManager()">⚙️ Типы</button>
+                    <label>Комментарий</label><textarea id="mComment">${escapeHtml(marker.comment||'')}</textarea>
+                    <div class="btn-row"><button class="btn danger" id="delBtn">Удалить</button><button class="btn" onclick="closeModal()">Отмена</button><button class="btn accent" id="saveBtn">Сохранить</button></div>
+                </div></div>`;
+                document.getElementById('saveBtn').onclick = () => {
+                    const s = document.getElementById('mStart').value, range = document.getElementById('mRange').checked;
+                    const e = range ? document.getElementById('mEnd').value : s;
+                    updateMarker(taskId, marker.id, { startDate:s, endDate:e, type:document.getElementById('mType').value, comment:document.getElementById('mComment').value });
+                    closeModal();
+                };
+                document.getElementById('delBtn').onclick = () => { if(confirm('Удалить?')) { deleteMarker(taskId, marker.id); closeModal(); } };
+            }
 
-   function manageStatuses() {
-    let statusesHtml = '<h3>Статусы</h3><ul style="list-style:none;padding:0;">';
-    state.customStatuses.forEach((s,i) => {
-     statusesHtml += `<li style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-      <span>${escapeHtml(s)}</span>
-      <div>
-       <button class="btn small" data-idx="${i}" data-action="edit-status">✎</button>
-       <button class="btn small danger" data-idx="${i}" data-action="delete-status">🗑</button>
-      </div></li>`;
-    });
-    statusesHtml += '</ul><div style="display:flex; gap:8px; margin-top:12px;">';
-    statusesHtml += '<input id="newStatus" placeholder="Новый статус" style="flex:1;">';
-    statusesHtml += '<button class="btn accent" id="addStatusBtn">Добавить</button>';
-    statusesHtml += '<button class="btn" onclick="closeModal()">Закрыть</button></div>';
-    document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay"><div class="modal" onclick="event.stopPropagation()">${statusesHtml}</div></div>`;
-    let editingIndex = null; const newInput = document.getElementById('newStatus'); const addBtn = document.getElementById('addStatusBtn');
-    document.querySelectorAll('[data-action="edit-status"]').forEach(btn => btn.addEventListener('click', function() {
-     const idx = parseInt(this.dataset.idx); newInput.value = state.customStatuses[idx]; newInput.focus();
-     addBtn.textContent = 'Сохранить'; editingIndex = idx;
-    }));
-    document.querySelectorAll('[data-action="delete-status"]').forEach(btn => btn.addEventListener('click', function() {
-     state.customStatuses.splice(parseInt(this.dataset.idx),1); saveState(); manageStatuses();
-    }));
-    addBtn.addEventListener('click', () => {
-     const val = newInput.value.trim(); if(!val) return;
-     if (editingIndex !== null) { state.customStatuses[editingIndex] = val; }
-     else { if (state.customStatuses.includes(val)) { alert('Такой статус уже есть'); return; } state.customStatuses.push(val); }
-     saveState(); manageStatuses();
-    });
-   }
+            function manageStatuses() {
+                let statusesHtml = '<h3>Статусы</h3><ul style="list-style:none;padding:0;">';
+                state.customStatuses.forEach((s,i) => {
+                    statusesHtml += `<li style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><span>${escapeHtml(s)}</span> <div><button class="btn small" data-idx="${i}" data-action="edit-status">✎</button> <button class="btn small danger" data-idx="${i}" data-action="delete-status">🗑</button></div></li>`;
+                });
+                statusesHtml += '</ul><div style="display:flex; gap:8px; margin-top:12px;"><input id="newStatus" placeholder="Новый статус" style="flex:1;"><button class="btn accent" id="addStatusBtn">Добавить</button><button class="btn" onclick="closeModal()">Закрыть</button></div>';
+                document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay"><div class="modal" onclick="event.stopPropagation()">${statusesHtml}</div></div>`;
+                let editingIndex = null; const newInput = document.getElementById('newStatus'); const addBtn = document.getElementById('addStatusBtn');
+                document.querySelectorAll('[data-action="edit-status"]').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const idx = parseInt(this.dataset.idx); newInput.value = state.customStatuses[idx]; newInput.focus();
+                        addBtn.textContent = 'Сохранить'; editingIndex = idx;
+                    });
+                });
+                document.querySelectorAll('[data-action="delete-status"]').forEach(btn => {
+                    btn.addEventListener('click', function() { state.customStatuses.splice(parseInt(this.dataset.idx),1); saveState(); manageStatuses(); });
+                });
+                addBtn.addEventListener('click', () => {
+                    const val = newInput.value.trim(); if (!val) return;
+                    if (editingIndex !== null) { state.customStatuses[editingIndex] = val; }
+                    else { if (state.customStatuses.includes(val)) { alert('Такой статус уже есть'); return; } state.customStatuses.push(val); }
+                    saveState(); manageStatuses();
+                });
+            }
 
-   function showTypeManager() {
-    let typesHtml = '<h3>Типы точек</h3><ul style="list-style:none;padding:0;">';
-    Object.entries(state.markerTypes).forEach(([type, obj]) => {
-     typesHtml += `<li style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-      <span>${obj.label} (${obj.shape})</span>
-      <div><button class="btn small" data-type="${type}" data-action="edit-type">✎</button>
-      <button class="btn small danger" data-type="${type}" data-action="delete-type">🗑</button></div></li>`;
-    });
-    typesHtml += '</ul><div class="btn-row" style="margin-top:12px;">';
-    typesHtml += '<button class="btn accent" id="addTypeBtn">+ Новый тип</button>';
-    typesHtml += '<button class="btn" onclick="closeModal()">Закрыть</button></div>';
-    document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay"><div class="modal" onclick="event.stopPropagation()">${typesHtml}</div></div>`;
-    document.querySelectorAll('[data-action="edit-type"]').forEach(btn => btn.addEventListener('click', () => showAddTypeForm(btn.dataset.type)));
-    document.querySelectorAll('[data-action="delete-type"]').forEach(btn => btn.addEventListener('click', function() {
-     const type = this.dataset.type;
-     if (confirm(`Удалить тип "${state.markerTypes[type].label}"?`)) {
-      state.projects.forEach(p => p.groups.forEach(g => g.tasks.forEach(t => t.markers.forEach(m => { if(m.type===type) m.type='control'; }))));
-      delete state.markerTypes[type]; saveState(); renderAll(); showTypeManager();
-     }
-    }));
-    document.getElementById('addTypeBtn').addEventListener('click', () => showAddTypeForm());
-   }
+            function showTypeManager() {
+                let typesHtml = '<h3>Типы точек</h3><ul style="list-style:none;padding:0;">';
+                Object.entries(state.markerTypes).forEach(([type, obj]) => {
+                    typesHtml += `<li style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><span>${obj.label} (${obj.shape})</span> <div><button class="btn small" data-type="${type}" data-action="edit-type">✎</button> <button class="btn small danger" data-type="${type}" data-action="delete-type">🗑</button></div></li>`;
+                });
+                typesHtml += '</ul><div class="btn-row" style="margin-top:12px;"><button class="btn accent" id="addTypeBtn">+ Новый тип</button><button class="btn" onclick="closeModal()">Закрыть</button></div>';
+                document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay"><div class="modal" onclick="event.stopPropagation()">${typesHtml}</div></div>`;
+                document.querySelectorAll('[data-action="edit-type"]').forEach(btn => btn.addEventListener('click', () => showAddTypeForm(btn.dataset.type)));
+                document.querySelectorAll('[data-action="delete-type"]').forEach(btn => btn.addEventListener('click', function() {
+                    const type = this.dataset.type;
+                    if (confirm(`Удалить тип "${state.markerTypes[type].label}"?`)) {
+                        state.projects.forEach(p => p.groups.forEach(g => g.tasks.forEach(t => t.markers.forEach(m => { if(m.type===type) m.type='control'; }))));
+                        delete state.markerTypes[type]; saveState(); renderAll(); showTypeManager();
+                    }
+                }));
+                document.getElementById('addTypeBtn').addEventListener('click', () => showAddTypeForm());
+            }
 
-   function showAddTypeForm(existingTypeKey = null) {
-    const isEdit = existingTypeKey !== null;
-    const obj = isEdit ? state.markerTypes[existingTypeKey] : null;
-    let html = `<h3>${isEdit ? 'Редактировать' : 'Новый'} тип</h3>`;
-    html += `<label>Название</label><input id="typeLabel" value="${isEdit ? escapeHtml(obj.label) : ''}">`;
-    html += `<label>Форма</label><select id="typeShape">
-     <option value="circle" ${isEdit && obj.shape==='circle'?'selected':''}>Круг</option>
-     <option value="diamond" ${isEdit && obj.shape==='diamond'?'selected':''}>Ромб</option>
-     <option value="square" ${isEdit && obj.shape==='square'?'selected':''}>Квадрат</option>
-    </select>`;
-    html += `<label>Цвет</label><input type="color" id="typeColor" value="${isEdit ? obj.color : '#3b82f6'}">`;
-    html += `<div class="btn-row"><button class="btn" onclick="showTypeManager()">Назад</button><button class="btn accent" id="saveTypeBtn">${isEdit ? 'Сохранить' : 'Создать'}</button></div>`;
-    document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay"><div class="modal" onclick="event.stopPropagation()">${html}</div></div>`;
-    document.getElementById('saveTypeBtn').onclick = () => {
-     const label = document.getElementById('typeLabel').value.trim(), shape = document.getElementById('typeShape').value, color = document.getElementById('typeColor').value;
-     if (!label) return;
-     if (isEdit) {
-      state.markerTypes[existingTypeKey].label = label; state.markerTypes[existingTypeKey].shape = shape; state.markerTypes[existingTypeKey].color = color;
-     } else {
-      const newType = label.toLowerCase().replace(/\s+/g,'_');
-      if (state.markerTypes[newType]) { alert('Тип с таким ключом уже существует'); return; }
-      state.markerTypes[newType] = { label, shape, color };
-     }
-     saveState(); renderAll(); showTypeManager();
-    };
-   }
+            function showAddTypeForm(existingTypeKey = null) {
+                const isEdit = existingTypeKey !== null;
+                const obj = isEdit ? state.markerTypes[existingTypeKey] : null;
+                let html = `<h3>${isEdit ? 'Редактировать' : 'Новый'} тип</h3>`;
+                html += `<label>Название</label><input id="typeLabel" value="${isEdit ? escapeHtml(obj.label) : ''}">`;
+                html += `<label>Форма</label><select id="typeShape"><option value="circle" ${isEdit && obj.shape==='circle'?'selected':''}>Круг</option><option value="diamond" ${isEdit && obj.shape==='diamond'?'selected':''}>Ромб</option><option value="square" ${isEdit && obj.shape==='square'?'selected':''}>Квадрат</option></select>`;
+                html += `<label>Цвет</label><input type="color" id="typeColor" value="${isEdit ? obj.color : '#3b82f6'}">`;
+                html += `<div class="btn-row"><button class="btn" onclick="showTypeManager()">Назад</button><button class="btn accent" id="saveTypeBtn">${isEdit ? 'Сохранить' : 'Создать'}</button></div>`;
+                document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay"><div class="modal" onclick="event.stopPropagation()">${html}</div></div>`;
+                document.getElementById('saveTypeBtn').onclick = () => {
+                    const label = document.getElementById('typeLabel').value.trim(), shape = document.getElementById('typeShape').value, color = document.getElementById('typeColor').value;
+                    if (!label) return;
+                    if (isEdit) { state.markerTypes[existingTypeKey].label = label; state.markerTypes[existingTypeKey].shape = shape; state.markerTypes[existingTypeKey].color = color; }
+                    else {
+                        const newType = label.toLowerCase().replace(/\s+/g,'_');
+                        if (state.markerTypes[newType]) { alert('Тип с таким ключом уже существует'); return; }
+                        state.markerTypes[newType] = { label, shape, color };
+                    }
+                    saveState(); renderAll(); showTypeManager();
+                };
+            }
 
-   function addMarker(taskId, s, e, type, comment) {
-    const proj = getProject(); if (!proj) return;
-    for (const g of proj.groups) { const task = g.tasks.find(t=>t.id===taskId); if(task){ task.markers.push({id:genId(), startDate:s, endDate:e, type, comment}); saveState(); renderAll(); return; } }
-   }
-   function updateMarker(taskId, markerId, upd) {
-    const proj = getProject();
-    for (const g of proj.groups) { const task = g.tasks.find(t=>t.id===taskId); if(task){ const m=task.markers.find(m=>m.id===markerId); if(m){Object.assign(m,upd); saveState(); renderAll();} return; } }
-   }
-   function deleteMarker(taskId, markerId) {
-    const proj = getProject();
-    for (const g of proj.groups) { const task = g.tasks.find(t=>t.id===taskId); if(task){ task.markers = task.markers.filter(m=>m.id!==markerId); saveState(); renderAll(); return; } }
-   }
+            function addMarker(taskId, s, e, type, comment) {
+                const proj = getProject(); if (!proj) return;
+                for (const g of proj.groups) { const task = g.tasks.find(t=>t.id===taskId); if(task){ task.markers.push({id:genId(), startDate:s, endDate:e, type, comment}); saveState(); renderAll(); return; } }
+            }
+            function updateMarker(taskId, markerId, upd) {
+                const proj = getProject();
+                for (const g of proj.groups) { const task = g.tasks.find(t=>t.id===taskId); if(task){ const m=task.markers.find(m=>m.id===markerId); if(m){Object.assign(m,upd); saveState(); renderAll();} return; } }
+            }
+            function deleteMarker(taskId, markerId) {
+                const proj = getProject();
+                for (const g of proj.groups) { const task = g.tasks.find(t=>t.id===taskId); if(task){ task.markers = task.markers.filter(m=>m.id!==markerId); saveState(); renderAll(); return; } }
+            }
 
-   function updateGroupTitle(id, val) { const proj=getProject(); const g=proj.groups.find(g=>g.id===id); if(g){g.title=val; saveState();} }
-   function updateTaskName(id, val) { const proj=getProject(); const t=proj.groups.flatMap(g=>g.tasks).find(t=>t.id===id); if(t){t.name=val; saveState();} }
-   function updateTaskStatus(id, val) { const proj=getProject(); const t=proj.groups.flatMap(g=>g.tasks).find(t=>t.id===id); if(t){t.status=val; saveState(); renderAll();} }
-   function updateTaskDate(id, field, val) { if(!val) return; const proj=getProject(); for(const g of proj.groups){ const t=g.tasks.find(t=>t.id===id); if(t){t[field]=val; saveState(); renderAll(); return;} } }
-   function toggleGroup(id) { const proj=getProject(); const g=proj.groups.find(g=>g.id===id); if(g){g.expanded=!g.expanded; saveState(); renderAll();} }
+            function updateGroupTitle(id, val) { const proj=getProject(); const g=proj.groups.find(g=>g.id===id); if(g){g.title=val; saveState();} }
+            function updateTaskName(id, val) { const proj=getProject(); const t=proj.groups.flatMap(g=>g.tasks).find(t=>t.id===id); if(t){t.name=val; saveState();} }
+            function updateTaskStatus(id, val) { const proj=getProject(); const t=proj.groups.flatMap(g=>g.tasks).find(t=>t.id===id); if(t){t.status=val; saveState(); renderAll();} }
+            function updateTaskDate(id, field, val) { if(!val) return; const proj=getProject(); for(const g of proj.groups){ const t=g.tasks.find(t=>t.id===id); if(t){t[field]=val; saveState(); renderAll(); return;} } }
+            function toggleGroup(id) { const proj=getProject(); const g=proj.groups.find(g=>g.id===id); if(g){g.expanded=!g.expanded; saveState(); renderAll();} }
 
-   function addGroup() {
-    document.getElementById('modalContainer').innerHTML = `
-    <div class="modal-overlay" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()">
-     <h3>Новая группа</h3><label>Название</label><input id="groupName">
-     <div class="btn-row"><button class="btn" onclick="closeModal()">Отмена</button><button class="btn accent" id="addGroupConfirm">Создать</button></div>
-    </div></div>`;
-    document.getElementById('addGroupConfirm').onclick = () => {
-     const name = document.getElementById('groupName').value.trim();
-     if (name) { getProject().groups.push({id:genId(), title:name, expanded:true, tasks:[]}); saveState(); renderAll(); closeModal(); }
-    };
-   }
-   function showAddTaskModal() {
-    const proj = getProject(); if (proj.groups.length===0) { alert('Создайте группу'); return; }
-    const opts = proj.groups.map(g=>`<option value="${g.id}">${escapeHtml(g.title)}</option>`).join('');
-    document.getElementById('modalContainer').innerHTML = `
-    <div class="modal-overlay" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()">
-     <h3>Новая задача</h3><label>Название</label><input id="taskName"><label>Группа</label><select id="taskGroup">${opts}</select>
-     <div class="btn-row"><button class="btn" onclick="closeModal()">Отмена</button><button class="btn accent" id="addTaskConfirm">Добавить</button></div>
-    </div></div>`;
-    document.getElementById('addTaskConfirm').onclick = () => {
-     const name = document.getElementById('taskName').value.trim(), gid = document.getElementById('taskGroup').value;
-     if (name && gid) { const g = proj.groups.find(g=>g.id===gid); if(g){ g.tasks.push({id:genId(), name, status:'Не начато', startDate:toLocalISO(new Date()), endDate:toLocalISO(new Date(Date.now()+5*86400000)), markers:[]}); g.expanded=true; saveState(); renderAll(); closeModal(); } }
-    };
-   }
+            function addGroup() {
+                document.getElementById('modalContainer').innerHTML = `
+                <div class="modal-overlay" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()">
+                    <h3>Новая группа</h3><label>Название</label><input id="groupName">
+                    <div class="btn-row"><button class="btn" onclick="closeModal()">Отмена</button><button class="btn accent" id="addGroupConfirm">Создать</button></div>
+                </div></div>`;
+                document.getElementById('addGroupConfirm').onclick = () => {
+                    const name = document.getElementById('groupName').value.trim();
+                    if (name) { getProject().groups.push({id:genId(), title:name, expanded:true, tasks:[]}); saveState(); renderAll(); closeModal(); }
+                };
+            }
+            function showAddTaskModal() {
+                const proj = getProject(); if (proj.groups.length===0) { alert('Создайте группу'); return; }
+                const opts = proj.groups.map(g=>`<option value="${g.id}">${escapeHtml(g.title)}</option>`).join('');
+                document.getElementById('modalContainer').innerHTML = `
+                <div class="modal-overlay" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()">
+                    <h3>Новая задача</h3><label>Название</label><input id="taskName"><label>Группа</label><select id="taskGroup">${opts}</select>
+                    <div class="btn-row"><button class="btn" onclick="closeModal()">Отмена</button><button class="btn accent" id="addTaskConfirm">Добавить</button></div>
+                </div></div>`;
+                document.getElementById('addTaskConfirm').onclick = () => {
+                    const name = document.getElementById('taskName').value.trim(), gid = document.getElementById('taskGroup').value;
+                    if (name && gid) { const g = proj.groups.find(g=>g.id===gid); if(g){ g.tasks.push({id:genId(), name, status:'Не начато', startDate:toLocalISO(new Date()), endDate:toLocalISO(new Date(Date.now()+5*86400000)), markers:[]}); g.expanded=true; saveState(); renderAll(); closeModal(); } }
+                };
+            }
 
-   function newProject() { const n=prompt('Название проекта:'); if(n){ state.projects.push({id:genId(),name:n,groups:[],workingOverrides:{}}); state.activeProjectId=state.projects[state.projects.length-1].id; saveState(); renderAll(); } }
-   function renameProject() { const proj=getProject(); if(!proj)return; const n=prompt('Новое название:',proj.name); if(n){ proj.name=n; saveState(); renderAll(); } }
-   function deleteProject() { if(state.projects.length<=1){ alert('Нельзя удалить последний'); return; } if(confirm('Удалить проект?')){ state.projects=state.projects.filter(p=>p.id!==state.activeProjectId); state.activeProjectId=state.projects[0].id; saveState(); renderAll(); } }
+            function newProject() { const n=prompt('Название проекта:'); if(n){ state.projects.push({id:genId(),name:n,groups:[],workingOverrides:{}}); state.activeProjectId=state.projects[state.projects.length-1].id; saveState(); renderAll(); } }
+            function renameProject() { const proj=getProject(); if(!proj)return; const n=prompt('Новое название:',proj.name); if(n){ proj.name=n; saveState(); renderAll(); } }
+            function deleteProject() { if(state.projects.length<=1){ alert('Нельзя удалить последний'); return; } if(confirm('Удалить проект?')){ state.projects=state.projects.filter(p=>p.id!==state.activeProjectId); state.activeProjectId=state.projects[0].id; saveState(); renderAll(); } }
 
-   function closeModal() { document.getElementById('modalContainer').innerHTML = ''; }
-   function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+            // ===================== TOOLTIP =====================
+            function showTooltip(x, y, text) {
+                const t = document.getElementById('tooltip');
+                t.textContent = text;
+                t.style.left = (x+15)+'px';
+                t.style.top = (y-10)+'px';
+                t.style.opacity = '1';
+            }
+            function hideTooltip() { document.getElementById('tooltip').style.opacity = '0'; }
 
-   // ===================== SHARE =====================
-   function shareProject() {
-    const proj = getProject(); if (!proj) { alert('Нет активного проекта'); return; }
-    const data = JSON.stringify(proj);
-    const encoded = btoa(unescape(encodeURIComponent(data)));
-    const url = window.location.origin + window.location.pathname + '#project=' + encoded;
-    navigator.clipboard.writeText(url).then(() => alert('Ссылка скопирована!'));
-   }
-   window.addEventListener('hashchange', importFromHash);
-   function importFromHash() {
-    const hash = window.location.hash;
-    if (hash.startsWith('#project=')) {
-     const encoded = hash.slice('#project='.length);
-     try {
-      const json = decodeURIComponent(escape(atob(encoded)));
-      const imported = JSON.parse(json);
-      if (imported.id && imported.groups) {
-       if (confirm('Загрузить проект из ссылки?')) {
-        if (!currentUser) { alert('Сначала войдите'); window.location.hash = ''; return; }
-        const exists = state.projects.find(p => p.id === imported.id);
-        if (exists) Object.assign(exists, imported);
-        else state.projects.push(imported);
-        state.activeProjectId = imported.id;
-        saveState(); renderAll();
-        window.location.hash = '';
-       }
-      }
-     } catch(e) { alert('Некорректная ссылка'); }
-    }
-   }
-   if (window.location.hash.startsWith('#project=')) importFromHash();
+            // ===================== SHARE =====================
+            function shareProject() {
+                const proj = getProject(); if (!proj) { alert('Нет активного проекта'); return; }
+                const data = JSON.stringify(proj);
+                const encoded = btoa(unescape(encodeURIComponent(data)));
+                const url = window.location.origin + window.location.pathname + '#project=' + encoded;
+                navigator.clipboard.writeText(url).then(() => alert('Ссылка скопирована!'));
+            }
+            window.addEventListener('hashchange', importFromHash);
+            function importFromHash() {
+                const hash = window.location.hash;
+                if (hash.startsWith('#project=')) {
+                    const encoded = hash.slice('#project='.length);
+                    try {
+                        const json = decodeURIComponent(escape(atob(encoded)));
+                        const imported = JSON.parse(json);
+                        if (imported.id && imported.groups) {
+                            if (!currentUser) {
+                                currentUser = 'guest_' + Date.now();
+                                setSession(currentUser);
+                                state = { projects: [], activeProjectId: null, customStatuses: ['Не начато','В работе','На проверке','Завершено','Просрочено'], markerTypes: { control: {label:'Контроль', shape:'diamond', color:'#f59e0b'}, delivery: {label:'Сдача', shape:'circle', color:'#ef4444'}, feedback: {label:'Фидбэк', shape:'circle', color:'#fbbf24'} } };
+                            }
+                            const exists = state.projects.find(p => p.id === imported.id);
+                            if (exists) Object.assign(exists, imported);
+                            else state.projects.push(imported);
+                            state.activeProjectId = imported.id;
+                            if (document.getElementById('app-container').style.display === 'none') {
+                                document.getElementById('auth-container').style.display = 'none';
+                                document.getElementById('app-container').style.display = 'flex';
+                            }
+                            renderAll();
+                            window.location.hash = '';
+                        }
+                    } catch(e) { alert('Некорректная ссылка'); }
+                }
+            }
+            if (window.location.hash.startsWith('#project=')) importFromHash();
 
-   // ===================== EVENT LISTENERS =====================
-   document.getElementById('loginBtn').addEventListener('click', () => {
-    const login = document.getElementById('loginInput').value.trim(), pass = document.getElementById('passwordInput').value;
-    if (!login || !pass) { document.getElementById('authError').textContent = 'Введите логин и пароль'; return; }
-    const users = getUsers();
-    if (!users[login] || users[login].password !== hashPass(pass)) { document.getElementById('authError').textContent = 'Неверный логин или пароль'; return; }
-    currentUser = login; setSession(login); loadState(); initDefaultIfNeeded(); showApp();
-   });
-   document.getElementById('registerBtn').addEventListener('click', () => {
-    const login = document.getElementById('loginInput').value.trim(), pass = document.getElementById('passwordInput').value;
-    if (!login || !pass) { document.getElementById('authError').textContent = 'Введите логин и пароль'; return; }
-    const users = getUsers();
-    if (users[login]) { document.getElementById('authError').textContent = 'Пользователь уже существует'; return; }
-    users[login] = { password: hashPass(pass), data: null }; saveUsers(users);
-    currentUser = login; setSession(login); loadState(); initDefaultIfNeeded(); showApp();
-   });
-   document.getElementById('logoutBtn').addEventListener('click', () => { clearSession(); currentUser = null; state = {}; showAuth(); });
-   document.getElementById('shareBtn').addEventListener('click', shareProject);
-   document.getElementById('addGroupBtn').addEventListener('click', addGroup);
-   document.getElementById('addTaskBtn').addEventListener('click', showAddTaskModal);
-   document.getElementById('manageStatusesBtn').addEventListener('click', manageStatuses);
-   document.getElementById('renameBtn').addEventListener('click', renameProject);
-   document.getElementById('newBtn').addEventListener('click', newProject);
-   document.getElementById('deleteBtn').addEventListener('click', deleteProject);
+            // ===================== EVENT LISTENERS =====================
+            document.getElementById('loginBtn').addEventListener('click', () => {
+                const login = document.getElementById('loginInput').value.trim(), pass = document.getElementById('passwordInput').value;
+                if (!login || !pass) { document.getElementById('authError').textContent = 'Введите логин и пароль'; return; }
+                const users = getUsers();
+                if (!users[login] || users[login].password !== hashPass(pass)) { document.getElementById('authError').textContent = 'Неверный логин или пароль'; return; }
+                currentUser = login; setSession(login); loadState();
+                if (state.projects.length===0) { state.projects = [{ id: genId(), name:'Мой проект', groups:[], workingOverrides:{} }]; state.activeProjectId = state.projects[0].id; }
+                showApp();
+            });
+            document.getElementById('registerBtn').addEventListener('click', () => {
+                const login = document.getElementById('loginInput').value.trim(), pass = document.getElementById('passwordInput').value;
+                if (!login || !pass) { document.getElementById('authError').textContent = 'Введите логин и пароль'; return; }
+                const users = getUsers();
+                if (users[login]) { document.getElementById('authError').textContent = 'Пользователь уже существует'; return; }
+                users[login] = { password: hashPass(pass), data: null }; saveUsers(users);
+                currentUser = login; setSession(login); loadState();
+                if (state.projects.length===0) { state.projects = [{ id: genId(), name:'Мой проект', groups:[], workingOverrides:{} }]; state.activeProjectId = state.projects[0].id; }
+                showApp();
+            });
+            document.getElementById('logoutBtn').addEventListener('click', () => { clearSession(); currentUser = null; state = {}; showAuth(); });
+            document.getElementById('shareBtn').addEventListener('click', shareProject);
+            document.getElementById('addGroupBtn').addEventListener('click', addGroup);
+            document.getElementById('addTaskBtn').addEventListener('click', showAddTaskModal);
+            document.getElementById('manageStatusesBtn').addEventListener('click', manageStatuses);
+            document.getElementById('renameBtn').addEventListener('click', renameProject);
+            document.getElementById('newBtn').addEventListener('click', newProject);
+            document.getElementById('deleteBtn').addEventListener('click', deleteProject);
 
-   // ===================== INIT =====================
-   (function init() {
-    const session = getSession();
-    if (session && session.loggedIn) {
-     currentUser = session.username;
-     loadState();
-     initDefaultIfNeeded();
-     showApp();
-    } else {
-     showAuth();
-    }
-   })();
-  })();
- </script>
+            // Глобальные ссылки для кнопок внутри модалок
+            window.manageStatuses = manageStatuses;
+            window.showTypeManager = showTypeManager;
+            window.showAddTypeForm = showAddTypeForm;
+
+            // ===================== INIT =====================
+            (function init() {
+                const session = getSession();
+                if (session && session.loggedIn) {
+                    currentUser = session.username;
+                    loadState();
+                    if (state.projects.length === 0) { state.projects = [{ id: genId(), name:'Мой проект', groups:[], workingOverrides:{} }]; state.activeProjectId = state.projects[0].id; }
+                    showApp();
+                } else {
+                    showAuth();
+                }
+            })();
+        })();
+    </script>
 </body>
 </html>
+            
