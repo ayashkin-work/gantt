@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Гант – финальная версия</title>
+    <title>Гант – конструктор + поделиться</title>
     <style>
         :root {
             --blue: #2563eb; --blue-bar: #3b82f6; --green-bar: #10b981;
@@ -11,13 +11,7 @@
         }
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #e8eaed; display: flex; justify-content: center; min-height: 100vh; padding: 16px; }
-        #auth-container, #app-container { background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-        #app-container { width: 100%; max-width: 1440px; display: flex; flex-direction: column; height: 92vh; }
-        #auth-container { max-width: 400px; padding: 32px; margin: auto; display: flex; flex-direction: column; gap: 16px; }
-        #auth-container h2 { text-align: center; }
-        #auth-container input { width: 100%; padding: 10px 12px; border: 1px solid #d0d5dd; border-radius: 6px; font-size: 14px; }
-        #auth-container .btn-row { display: flex; gap: 8px; justify-content: center; }
-
+        #app { width: 100%; max-width: 1440px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); display: flex; flex-direction: column; height: 92vh; }
         .toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: #fafbfc; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
         .toolbar .brand { font-weight:700; font-size:17px; margin-right:10px; }
         .btn { padding: 5px 10px; border-radius:5px; border:1px solid #d0d5dd; background:#fff; cursor:pointer; font-size:12px; font-weight:500; white-space:nowrap; }
@@ -86,18 +80,7 @@
     </style>
 </head>
 <body>
-    <div id="auth-container" style="display: none;">
-        <h2>Вход в Гант</h2>
-        <input type="text" id="loginInput" placeholder="Логин">
-        <input type="password" id="passwordInput" placeholder="Пароль">
-        <div class="btn-row">
-            <button class="btn accent" id="loginBtn">Войти</button>
-            <button class="btn" id="registerBtn">Регистрация</button>
-        </div>
-        <div style="color:red; font-size:12px; text-align:center;" id="authError"></div>
-    </div>
-
-    <div id="app-container" style="display: none;">
+    <div id="app">
         <div class="toolbar">
             <span class="brand">📊 <span>Гант</span></span>
             <select class="project-switcher" id="projectSelect"></select>
@@ -108,7 +91,6 @@
             <button class="btn" id="addTaskBtn">+ Задача</button>
             <span style="flex:1;"></span>
             <button class="btn small" id="shareBtn">🔗 Поделиться</button>
-            <button class="btn small" id="logoutBtn">🚪 Выйти</button>
         </div>
         <div class="main-container">
             <div class="left-panel"><div class="table-section">
@@ -129,38 +111,24 @@
 
     <script>
         (function() {
-            // ===================== AUTH & STORAGE =====================
-            const USERS_KEY = 'gantt_users';
-            const SESSION_KEY = 'gantt_session';
-            let currentUser = null;
+            const STORAGE_KEY = 'gantt_v9_shared';
+            const DAY_PX = 32;
             let state = {
                 projects: [], activeProjectId: null,
                 customStatuses: ['Не начато','В работе','На проверке','Завершено','Просрочено'],
                 markerTypes: {}
             };
 
-            function getUsers() { try { return JSON.parse(localStorage.getItem(USERS_KEY)) || {}; } catch(e) { return {}; } }
-            function saveUsers(users) { localStorage.setItem(USERS_KEY, JSON.stringify(users)); }
-            function hashPass(p) { return btoa(p); }
-            function getSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch(e) { return null; } }
-            function setSession(username) { localStorage.setItem(SESSION_KEY, JSON.stringify({username, loggedIn:true})); }
-            function clearSession() { localStorage.removeItem(SESSION_KEY); }
-
-            function saveState() {
-                if (!currentUser || currentUser.startsWith('guest_')) return;
-                const users = getUsers();
-                if (users[currentUser]) { users[currentUser].data = state; saveUsers(users); }
-            }
-            function loadState() {
-                const users = getUsers();
-                const user = users[currentUser];
-                if (user && user.data && user.data.projects) { state = user.data; }
-                else {
-                    state = { projects: [], activeProjectId: null,
-                        customStatuses: ['Не начато','В работе','На проверке','Завершено','Просрочено'],
-                        markerTypes: {}
-                    };
-                }
+            // Сохранение / загрузка
+            function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+            function load() {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) { try { state = JSON.parse(raw); } catch(e) { initDefault(); } }
+                else { initDefault(); }
+                if (!state.projects.length) initDefault();
+                if (!state.activeProjectId || !state.projects.find(p=>p.id===state.activeProjectId))
+                    state.activeProjectId = state.projects[0].id;
+                if (!state.customStatuses) state.customStatuses = ['Не начато','В работе','На проверке','Завершено','Просрочено'];
                 if (!state.markerTypes || Object.keys(state.markerTypes).length===0) {
                     state.markerTypes = {
                         control: {label:'Контроль', shape:'diamond', color:'#f59e0b'},
@@ -168,16 +136,29 @@
                         feedback: {label:'Фидбэк', shape:'circle', color:'#fbbf24'}
                     };
                 }
-                if (!state.customStatuses || !state.customStatuses.length)
-                    state.customStatuses = ['Не начато','В работе','На проверке','Завершено','Просрочено'];
-                if (!state.activeProjectId || !state.projects.find(p=>p.id===state.activeProjectId))
-                    state.activeProjectId = state.projects.length ? state.projects[0].id : null;
+            }
+            function initDefault() {
+                state = {
+                    projects: [{ id: genId(), name:'Мой проект', groups:[
+                        { id:'g1', title:'KV', expanded:true, tasks:[
+                            { id:'t1', name:'Концепт', status:'Завершено', startDate:'2026-05-04', endDate:'2026-05-09', markers:[] },
+                            { id:'t2', name:'Бриф', status:'В работе', startDate:'2026-05-07', endDate:'2026-05-13', markers:[
+                                { id:'m1', startDate:'2026-05-10', endDate:'2026-05-11', type:'control', comment:'Утверждение' }
+                            ]}
+                        ]}
+                    ], workingOverrides:{} }],
+                    activeProjectId: null,
+                    customStatuses: ['Не начато','В работе','На проверке','Завершено','Просрочено'],
+                    markerTypes: {
+                        control: {label:'Контроль', shape:'diamond', color:'#f59e0b'},
+                        delivery: {label:'Сдача', shape:'circle', color:'#ef4444'},
+                        feedback: {label:'Фидбэк', shape:'circle', color:'#fbbf24'}
+                    }
+                };
+                state.activeProjectId = state.projects[0].id;
             }
 
-            function showAuth() { document.getElementById('auth-container').style.display='flex'; document.getElementById('app-container').style.display='none'; }
-            function showApp() { document.getElementById('auth-container').style.display='none'; document.getElementById('app-container').style.display='flex'; renderAll(); }
-
-            // ===================== HELPERS =====================
+            // Хелперы
             function genId() { return Date.now() + '_' + Math.random().toString(36).slice(2,6); }
             function toLocalISO(date) { const d=new Date(date); return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2); }
             function isWeekend(date) { const d = new Date(date); return d.getDay()===0 || d.getDay()===6; }
@@ -206,12 +187,13 @@
             function closeModal() { document.getElementById('modalContainer').innerHTML = ''; }
             function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
             window.closeModal = closeModal;
-            // ===================== RENDER =====================
-            function renderAll() { if(!currentUser) return; renderProjectSelect(); renderTable(); renderGantt(); }
+
+            // Рендер
+            function renderAll() { renderProjectSelect(); renderTable(); renderGantt(); }
             function renderProjectSelect() {
                 const sel = document.getElementById('projectSelect');
                 sel.innerHTML = state.projects.map(p => `<option value="${p.id}" ${p.id===state.activeProjectId?'selected':''}>${escapeHtml(p.name)}</option>`).join('');
-                sel.onchange = () => { state.activeProjectId = sel.value; saveState(); renderAll(); };
+                sel.onchange = () => { state.activeProjectId = sel.value; save(); renderAll(); };
             }
 
             function renderTable() {
@@ -289,9 +271,10 @@
                     const toGroup = proj.groups.find(g => g.id === toGroupId);
                     if (toGroup) toGroup.tasks.splice(toIdx ?? toGroup.tasks.length, 0, task);
                 }
-                saveState(); renderAll();
+                save(); renderAll();
             }
 
+            // Гант
             function renderGantt() {
                 const proj = getProject();
                 const header = document.getElementById('timeHeader'), body = document.getElementById('ganttBody');
@@ -409,7 +392,7 @@
                     else if (isWeekend(ds)) ov[ds]='on';
                     else ov[ds]='off';
                     proj.workingOverrides = ov;
-                    saveState(); renderAll();
+                    save(); renderAll();
                 }));
             }
 
@@ -427,6 +410,7 @@
                 if (task) { const m = task.markers.find(m=>m.id===markerId); if (m) showMarkerEditModal(taskId, m); }
             }
 
+            // Модалки
             function showMarkerModal(taskId, startDate) {
                 const typesHtml = Object.entries(state.markerTypes).map(([t,o]) => `<option value="${t}">${o.label}</option>`).join('');
                 document.getElementById('modalContainer').innerHTML = `
@@ -447,7 +431,6 @@
                     addMarker(taskId, s, e, type, comment); closeModal();
                 };
             }
-
             function showMarkerEditModal(taskId, marker) {
                 const typesHtml = Object.entries(state.markerTypes).map(([t,o]) => `<option value="${t}" ${marker.type===t?'selected':''}>${o.label}</option>`).join('');
                 document.getElementById('modalContainer').innerHTML = `
@@ -485,13 +468,13 @@
                     });
                 });
                 document.querySelectorAll('[data-action="delete-status"]').forEach(btn => {
-                    btn.addEventListener('click', function() { state.customStatuses.splice(parseInt(this.dataset.idx),1); saveState(); manageStatuses(); });
+                    btn.addEventListener('click', function() { state.customStatuses.splice(parseInt(this.dataset.idx),1); save(); manageStatuses(); });
                 });
                 addBtn.addEventListener('click', () => {
                     const val = newInput.value.trim(); if (!val) return;
                     if (editingIndex !== null) { state.customStatuses[editingIndex] = val; }
                     else { if (state.customStatuses.includes(val)) { alert('Такой статус уже есть'); return; } state.customStatuses.push(val); }
-                    saveState(); manageStatuses();
+                    save(); manageStatuses();
                 });
             }
 
@@ -507,7 +490,7 @@
                     const type = this.dataset.type;
                     if (confirm(`Удалить тип "${state.markerTypes[type].label}"?`)) {
                         state.projects.forEach(p => p.groups.forEach(g => g.tasks.forEach(t => t.markers.forEach(m => { if(m.type===type) m.type='control'; }))));
-                        delete state.markerTypes[type]; saveState(); renderAll(); showTypeManager();
+                        delete state.markerTypes[type]; save(); renderAll(); showTypeManager();
                     }
                 }));
                 document.getElementById('addTypeBtn').addEventListener('click', () => showAddTypeForm());
@@ -531,28 +514,28 @@
                         if (state.markerTypes[newType]) { alert('Тип с таким ключом уже существует'); return; }
                         state.markerTypes[newType] = { label, shape, color };
                     }
-                    saveState(); renderAll(); showTypeManager();
+                    save(); renderAll(); showTypeManager();
                 };
             }
 
             function addMarker(taskId, s, e, type, comment) {
                 const proj = getProject(); if (!proj) return;
-                for (const g of proj.groups) { const task = g.tasks.find(t=>t.id===taskId); if(task){ task.markers.push({id:genId(), startDate:s, endDate:e, type, comment}); saveState(); renderAll(); return; } }
+                for (const g of proj.groups) { const task = g.tasks.find(t=>t.id===taskId); if(task){ task.markers.push({id:genId(), startDate:s, endDate:e, type, comment}); save(); renderAll(); return; } }
             }
             function updateMarker(taskId, markerId, upd) {
                 const proj = getProject();
-                for (const g of proj.groups) { const task = g.tasks.find(t=>t.id===taskId); if(task){ const m=task.markers.find(m=>m.id===markerId); if(m){Object.assign(m,upd); saveState(); renderAll();} return; } }
+                for (const g of proj.groups) { const task = g.tasks.find(t=>t.id===taskId); if(task){ const m=task.markers.find(m=>m.id===markerId); if(m){Object.assign(m,upd); save(); renderAll();} return; } }
             }
             function deleteMarker(taskId, markerId) {
                 const proj = getProject();
-                for (const g of proj.groups) { const task = g.tasks.find(t=>t.id===taskId); if(task){ task.markers = task.markers.filter(m=>m.id!==markerId); saveState(); renderAll(); return; } }
+                for (const g of proj.groups) { const task = g.tasks.find(t=>t.id===taskId); if(task){ task.markers = task.markers.filter(m=>m.id!==markerId); save(); renderAll(); return; } }
             }
 
-            function updateGroupTitle(id, val) { const proj=getProject(); const g=proj.groups.find(g=>g.id===id); if(g){g.title=val; saveState();} }
-            function updateTaskName(id, val) { const proj=getProject(); const t=proj.groups.flatMap(g=>g.tasks).find(t=>t.id===id); if(t){t.name=val; saveState();} }
-            function updateTaskStatus(id, val) { const proj=getProject(); const t=proj.groups.flatMap(g=>g.tasks).find(t=>t.id===id); if(t){t.status=val; saveState(); renderAll();} }
-            function updateTaskDate(id, field, val) { if(!val) return; const proj=getProject(); for(const g of proj.groups){ const t=g.tasks.find(t=>t.id===id); if(t){t[field]=val; saveState(); renderAll(); return;} } }
-            function toggleGroup(id) { const proj=getProject(); const g=proj.groups.find(g=>g.id===id); if(g){g.expanded=!g.expanded; saveState(); renderAll();} }
+            function updateGroupTitle(id, val) { const proj=getProject(); const g=proj.groups.find(g=>g.id===id); if(g){g.title=val; save();} }
+            function updateTaskName(id, val) { const proj=getProject(); const t=proj.groups.flatMap(g=>g.tasks).find(t=>t.id===id); if(t){t.name=val; save();} }
+            function updateTaskStatus(id, val) { const proj=getProject(); const t=proj.groups.flatMap(g=>g.tasks).find(t=>t.id===id); if(t){t.status=val; save(); renderAll();} }
+            function updateTaskDate(id, field, val) { if(!val) return; const proj=getProject(); for(const g of proj.groups){ const t=g.tasks.find(t=>t.id===id); if(t){t[field]=val; save(); renderAll(); return;} } }
+            function toggleGroup(id) { const proj=getProject(); const g=proj.groups.find(g=>g.id===id); if(g){g.expanded=!g.expanded; save(); renderAll();} }
 
             function addGroup() {
                 document.getElementById('modalContainer').innerHTML = `
@@ -562,7 +545,7 @@
                 </div></div>`;
                 document.getElementById('addGroupConfirm').onclick = () => {
                     const name = document.getElementById('groupName').value.trim();
-                    if (name) { getProject().groups.push({id:genId(), title:name, expanded:true, tasks:[]}); saveState(); renderAll(); closeModal(); }
+                    if (name) { getProject().groups.push({id:genId(), title:name, expanded:true, tasks:[]}); save(); renderAll(); closeModal(); }
                 };
             }
             function showAddTaskModal() {
@@ -575,25 +558,22 @@
                 </div></div>`;
                 document.getElementById('addTaskConfirm').onclick = () => {
                     const name = document.getElementById('taskName').value.trim(), gid = document.getElementById('taskGroup').value;
-                    if (name && gid) { const g = proj.groups.find(g=>g.id===gid); if(g){ g.tasks.push({id:genId(), name, status:'Не начато', startDate:toLocalISO(new Date()), endDate:toLocalISO(new Date(Date.now()+5*86400000)), markers:[]}); g.expanded=true; saveState(); renderAll(); closeModal(); } }
+                    if (name && gid) { const g = proj.groups.find(g=>g.id===gid); if(g){ g.tasks.push({id:genId(), name, status:'Не начато', startDate:toLocalISO(new Date()), endDate:toLocalISO(new Date(Date.now()+5*86400000)), markers:[]}); g.expanded=true; save(); renderAll(); closeModal(); } }
                 };
             }
 
-            function newProject() { const n=prompt('Название проекта:'); if(n){ state.projects.push({id:genId(),name:n,groups:[],workingOverrides:{}}); state.activeProjectId=state.projects[state.projects.length-1].id; saveState(); renderAll(); } }
-            function renameProject() { const proj=getProject(); if(!proj)return; const n=prompt('Новое название:',proj.name); if(n){ proj.name=n; saveState(); renderAll(); } }
-            function deleteProject() { if(state.projects.length<=1){ alert('Нельзя удалить последний'); return; } if(confirm('Удалить проект?')){ state.projects=state.projects.filter(p=>p.id!==state.activeProjectId); state.activeProjectId=state.projects[0].id; saveState(); renderAll(); } }
+            function newProject() { const n=prompt('Название проекта:'); if(n){ state.projects.push({id:genId(),name:n,groups:[],workingOverrides:{}}); state.activeProjectId=state.projects[state.projects.length-1].id; save(); renderAll(); } }
+            function renameProject() { const proj=getProject(); if(!proj)return; const n=prompt('Новое название:',proj.name); if(n){ proj.name=n; save(); renderAll(); } }
+            function deleteProject() { if(state.projects.length<=1){ alert('Нельзя удалить последний'); return; } if(confirm('Удалить проект?')){ state.projects=state.projects.filter(p=>p.id!==state.activeProjectId); state.activeProjectId=state.projects[0].id; save(); renderAll(); } }
 
-            // ===================== TOOLTIP =====================
+            // Тултип
             function showTooltip(x, y, text) {
                 const t = document.getElementById('tooltip');
-                t.textContent = text;
-                t.style.left = (x+15)+'px';
-                t.style.top = (y-10)+'px';
-                t.style.opacity = '1';
+                t.textContent = text; t.style.left = (x+15)+'px'; t.style.top = (y-10)+'px'; t.style.opacity = '1';
             }
             function hideTooltip() { document.getElementById('tooltip').style.opacity = '0'; }
 
-            // ===================== SHARE =====================
+            // Поделиться
             function shareProject() {
                 const proj = getProject(); if (!proj) { alert('Нет активного проекта'); return; }
                 const data = JSON.stringify(proj);
@@ -603,83 +583,43 @@
             }
             window.addEventListener('hashchange', importFromHash);
             function importFromHash() {
-    const hash = window.location.hash;
-    if (hash.startsWith('#project=')) {
-        const encoded = hash.slice('#project='.length);
-        try {
-            const json = decodeURIComponent(escape(atob(encoded)));
-            const imported = JSON.parse(json);
-            if (imported.id && imported.groups) {
-                if (!currentUser) {
-                    currentUser = 'guest_' + Date.now();
-                    setSession(currentUser);
-                    state = { projects: [], activeProjectId: null, customStatuses: ['Не начато','В работе','На проверке','Завершено','Просрочено'], markerTypes: { control: {label:'Контроль', shape:'diamond', color:'#f59e0b'}, delivery: {label:'Сдача', shape:'circle', color:'#ef4444'}, feedback: {label:'Фидбэк', shape:'circle', color:'#fbbf24'} } };
+                const hash = window.location.hash;
+                if (hash.startsWith('#project=')) {
+                    const encoded = hash.slice('#project='.length);
+                    try {
+                        const json = decodeURIComponent(escape(atob(encoded)));
+                        const imported = JSON.parse(json);
+                        if (imported.id && imported.groups) {
+                            const exists = state.projects.find(p => p.id === imported.id);
+                            if (exists) Object.assign(exists, imported);
+                            else state.projects.push(imported);
+                            state.activeProjectId = imported.id;
+                            save();
+                            renderAll();
+                            window.location.hash = '';
+                        }
+                    } catch(e) { alert('Некорректная ссылка'); }
                 }
-                const exists = state.projects.find(p => p.id === imported.id);
-                if (exists) Object.assign(exists, imported);
-                else state.projects.push(imported);
-                state.activeProjectId = imported.id;
-                saveState(); // <-- добавить эту строку
-                if (document.getElementById('app-container').style.display === 'none') {
-                    document.getElementById('auth-container').style.display = 'none';
-                    document.getElementById('app-container').style.display = 'flex';
-                }
-                renderAll();
-                window.location.hash = '';
             }
-        } catch(e) { alert('Некорректная ссылка'); }
-    }
-}
             if (window.location.hash.startsWith('#project=')) importFromHash();
 
-            // ===================== EVENT LISTENERS =====================
-            document.getElementById('loginBtn').addEventListener('click', () => {
-                const login = document.getElementById('loginInput').value.trim(), pass = document.getElementById('passwordInput').value;
-                if (!login || !pass) { document.getElementById('authError').textContent = 'Введите логин и пароль'; return; }
-                const users = getUsers();
-                if (!users[login] || users[login].password !== hashPass(pass)) { document.getElementById('authError').textContent = 'Неверный логин или пароль'; return; }
-                currentUser = login; setSession(login); loadState();
-                if (state.projects.length===0) { state.projects = [{ id: genId(), name:'Мой проект', groups:[], workingOverrides:{} }]; state.activeProjectId = state.projects[0].id; }
-                showApp();
-            });
-            document.getElementById('registerBtn').addEventListener('click', () => {
-                const login = document.getElementById('loginInput').value.trim(), pass = document.getElementById('passwordInput').value;
-                if (!login || !pass) { document.getElementById('authError').textContent = 'Введите логин и пароль'; return; }
-                const users = getUsers();
-                if (users[login]) { document.getElementById('authError').textContent = 'Пользователь уже существует'; return; }
-                users[login] = { password: hashPass(pass), data: null }; saveUsers(users);
-                currentUser = login; setSession(login); loadState();
-                if (state.projects.length===0) { state.projects = [{ id: genId(), name:'Мой проект', groups:[], workingOverrides:{} }]; state.activeProjectId = state.projects[0].id; }
-                showApp();
-            });
-            document.getElementById('logoutBtn').addEventListener('click', () => { clearSession(); currentUser = null; state = {}; showAuth(); });
-            document.getElementById('shareBtn').addEventListener('click', shareProject);
+            // Обработчики кнопок
             document.getElementById('addGroupBtn').addEventListener('click', addGroup);
             document.getElementById('addTaskBtn').addEventListener('click', showAddTaskModal);
             document.getElementById('manageStatusesBtn').addEventListener('click', manageStatuses);
+            document.getElementById('shareBtn').addEventListener('click', shareProject);
             document.getElementById('renameBtn').addEventListener('click', renameProject);
             document.getElementById('newBtn').addEventListener('click', newProject);
             document.getElementById('deleteBtn').addEventListener('click', deleteProject);
 
-            // Глобальные ссылки для кнопок внутри модалок
             window.manageStatuses = manageStatuses;
             window.showTypeManager = showTypeManager;
             window.showAddTypeForm = showAddTypeForm;
 
-            // ===================== INIT =====================
-            (function init() {
-                const session = getSession();
-                if (session && session.loggedIn) {
-                    currentUser = session.username;
-                    loadState();
-                    if (state.projects.length === 0) { state.projects = [{ id: genId(), name:'Мой проект', groups:[], workingOverrides:{} }]; state.activeProjectId = state.projects[0].id; }
-                    showApp();
-                } else {
-                    showAuth();
-                }
-            })();
+            // Старт
+            load();
+            renderAll();
         })();
     </script>
 </body>
 </html>
-            
