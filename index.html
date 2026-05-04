@@ -603,32 +603,33 @@
             }
             window.addEventListener('hashchange', importFromHash);
             function importFromHash() {
-                const hash = window.location.hash;
-                if (hash.startsWith('#project=')) {
-                    const encoded = hash.slice('#project='.length);
-                    try {
-                        const json = decodeURIComponent(escape(atob(encoded)));
-                        const imported = JSON.parse(json);
-                        if (imported.id && imported.groups) {
-                            if (!currentUser) {
-                                currentUser = 'guest_' + Date.now();
-                                setSession(currentUser);
-                                state = { projects: [], activeProjectId: null, customStatuses: ['Не начато','В работе','На проверке','Завершено','Просрочено'], markerTypes: { control: {label:'Контроль', shape:'diamond', color:'#f59e0b'}, delivery: {label:'Сдача', shape:'circle', color:'#ef4444'}, feedback: {label:'Фидбэк', shape:'circle', color:'#fbbf24'} } };
-                            }
-                            const exists = state.projects.find(p => p.id === imported.id);
-                            if (exists) Object.assign(exists, imported);
-                            else state.projects.push(imported);
-                            state.activeProjectId = imported.id;
-                            if (document.getElementById('app-container').style.display === 'none') {
-                                document.getElementById('auth-container').style.display = 'none';
-                                document.getElementById('app-container').style.display = 'flex';
-                            }
-                            renderAll();
-                            window.location.hash = '';
-                        }
-                    } catch(e) { alert('Некорректная ссылка'); }
+    const hash = window.location.hash;
+    if (hash.startsWith('#project=')) {
+        const encoded = hash.slice('#project='.length);
+        try {
+            const json = decodeURIComponent(escape(atob(encoded)));
+            const imported = JSON.parse(json);
+            if (imported.id && imported.groups) {
+                if (!currentUser) {
+                    currentUser = 'guest_' + Date.now();
+                    setSession(currentUser);
+                    state = { projects: [], activeProjectId: null, customStatuses: ['Не начато','В работе','На проверке','Завершено','Просрочено'], markerTypes: { control: {label:'Контроль', shape:'diamond', color:'#f59e0b'}, delivery: {label:'Сдача', shape:'circle', color:'#ef4444'}, feedback: {label:'Фидбэк', shape:'circle', color:'#fbbf24'} } };
                 }
+                const exists = state.projects.find(p => p.id === imported.id);
+                if (exists) Object.assign(exists, imported);
+                else state.projects.push(imported);
+                state.activeProjectId = imported.id;
+                saveState(); // <-- добавить эту строку
+                if (document.getElementById('app-container').style.display === 'none') {
+                    document.getElementById('auth-container').style.display = 'none';
+                    document.getElementById('app-container').style.display = 'flex';
+                }
+                renderAll();
+                window.location.hash = '';
             }
+        } catch(e) { alert('Некорректная ссылка'); }
+    }
+}
             if (window.location.hash.startsWith('#project=')) importFromHash();
 
             // ===================== EVENT LISTENERS =====================
