@@ -574,19 +574,17 @@
             function hideTooltip() { document.getElementById('tooltip').style.opacity = '0'; }
 
             // Поделиться
-function shareProject() {
-    const proj = getProject();
-    if (!proj) { alert('Нет активного проекта'); return; }
-    const data = JSON.stringify(proj);
-    // Используем безопасный способ кодирования
-    const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(data))));
-    const url = window.location.origin + window.location.pathname + '#project=' + encoded;
-    navigator.clipboard.writeText(url).then(() => alert('Ссылка скопирована!'));
-}
+            function shareProject() {
+                const proj = getProject();
+                if (!proj) { alert('Нет активного проекта'); return; }
+                const data = JSON.stringify(proj);
+                const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(data))));
+                const url = window.location.origin + window.location.pathname + '#project=' + encoded;
+                navigator.clipboard.writeText(url).then(() => alert('Ссылка скопирована!'));
+            }
 
-// Загрузка проекта из ссылки
-window.addEventListener('hashchange', importFromHash);
-function importFromHash() {
+            // Загрузка проекта из ссылки
+            function importFromHash() {
     const hash = window.location.hash;
     if (hash.startsWith('#project=')) {
         const encoded = hash.slice('#project='.length);
@@ -600,7 +598,7 @@ function importFromHash() {
                 state.activeProjectId = imported.id;
                 save();
                 renderAll();
-                // Очищаем хеш только после загрузки, чтобы не вызвать повторно
+                // Убираем хеш без повторного вызова
                 window.removeEventListener('hashchange', importFromHash);
                 window.location.hash = '';
                 setTimeout(() => window.addEventListener('hashchange', importFromHash), 100);
@@ -610,9 +608,9 @@ function importFromHash() {
         }
     }
 }
-// Обрабатываем хеш при первой загрузке
-if (window.location.hash.startsWith('#project=')) {
-    setTimeout(importFromHash, 100); // даём время на инициализацию
+            // Обрабатываем хеш при первой загрузке
+            if (window.location.hash.startsWith('#project=')) {
+    setTimeout(importFromHash, 100);
 }
 
             // Старт
