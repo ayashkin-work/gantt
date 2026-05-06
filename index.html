@@ -21,17 +21,26 @@
         select.project-switcher { padding:5px 8px; border-radius:5px; border:1px solid #d0d5dd; font-size:12px; background:#fff; max-width:180px; }
 
         .main-container { display:flex; flex:1; overflow:hidden; }
-        .left-panel { width: 520px; min-width: 420px; border-right:2px solid #e5e7eb; display:flex; flex-direction:column; background:#fcfcfd; }
+        .left-panel { width: 520px; min-width: 420px; border-right:2px solid #e5e7eb; display:flex; flex-direction:column; background:#fcfcfd; transition: width 0.2s; }
+        .left-panel.hide-extra { width: 340px; }
         .table-section { flex:1; display:flex; flex-direction:column; overflow:hidden; }
         .table-header { display:flex; background:#f1f3f4; font-weight:600; font-size:10px; text-transform:uppercase; color:#5f6368; border-bottom:2px solid #d0d5dd; height: var(--time-header-height); align-items:flex-end; }
         .table-header>div { padding:6px 8px; border-right:1px solid #e0e0e0; display:flex; align-items:center; height:100%; }
         .col-status { width:130px; justify-content:center; position:relative; }
         .col-status .add-status-btn { position:absolute; right:2px; top:2px; background:none; border:none; font-size:12px; cursor:pointer; color:#888; }
         .col-name { flex:1.5; }
-        .col-responsible { width:75px; justify-content:center; }
-        .col-start, .col-end { width:75px; justify-content:center; }
+        .col-responsible, .col-start, .col-end { width:75px; justify-content:center; }
         .col-drag { width:30px; justify-content:center; }
         .col-copy { width:30px; justify-content:center; }
+
+        /* Скрытие дополнительных колонок */
+        .left-panel.hide-extra .col-responsible,
+        .left-panel.hide-extra .col-start,
+        .left-panel.hide-extra .col-end {
+            display: none;
+        }
+        .left-panel.hide-extra .col-name { flex: 2; }
+
         .table-body { flex:1; overflow-y:auto; }
         .row { display:flex; align-items:stretch; border-bottom:1px solid #f0f1f3; height: var(--row-height); }
         .row.group { background:#f8f9fa; cursor:pointer; font-weight:600; }
@@ -64,21 +73,22 @@
         .gantt-row { position:relative; height: var(--row-height); border-bottom:1px solid #f0f1f3; white-space:nowrap; }
         .bar-segment { position:absolute; top:50%; transform:translateY(-50%); height:22px; background:var(--blue-bar); border-radius:5px; cursor:pointer; z-index:2; }
         .bar-segment.status-done { background:var(--green-bar); }
-        /* Точки с улучшенной обводкой */
+        /* Точки */
         .marker {
             position:absolute; top:50%; transform:translate(-50%,-50%);
-            cursor:pointer; z-index:5; border:3px solid #fff; box-sizing: content-box;
+            cursor:pointer; z-index:5; border:2px solid #fff; box-sizing: content-box;
         }
         .marker.control { width:10px; height:10px; background: var(--control); border-radius: 2px; }
         .marker.delivery { width:12px; height:12px; background: var(--delivery); border-radius: 50%; }
         .marker.feedback { width:12px; height:12px; background: var(--feedback); border-radius: 50%; }
+        /* Линии промежутков */
         .marker-range-line {
             position:absolute; top:50%; transform:translateY(-50%);
-            height:4px; z-index:3; cursor: pointer;
+            height:4px; z-index:3; cursor: pointer; opacity: 0.85;
         }
-        .marker-range-line.control { background: repeating-linear-gradient(90deg, var(--control) 0px, var(--control) 4px, transparent 4px, transparent 8px); }
-        .marker-range-line.delivery { background: repeating-linear-gradient(90deg, var(--delivery) 0px, var(--delivery) 4px, transparent 4px, transparent 8px); }
-        .marker-range-line.feedback { background: repeating-linear-gradient(90deg, var(--feedback) 0px, var(--feedback) 4px, transparent 4px, transparent 8px); }
+        .marker-range-line.control { background: var(--control); }
+        .marker-range-line.delivery { background: var(--delivery); }
+        .marker-range-line.feedback { background: var(--feedback); }
         .weekend-strip { position:absolute; top:0; bottom:0; width:32px; background:rgba(0,0,0,0.03); pointer-events:none; z-index:0; }
         .today-line { position:absolute; top:0; bottom:0; width:2px; background:#f59e0b; opacity:0.6; z-index:3; }
 
@@ -107,6 +117,7 @@
             <button class="btn accent" id="addGroupBtn">+ Группа</button>
             <button class="btn" id="addTaskBtn">+ Задача</button>
             <span style="display:flex;align-items:center;gap:4px;margin-left:auto;margin-right:8px;">
+                <button class="btn small" id="toggleColumnsBtn" title="Скрыть/показать колонки">👁️</button>
                 <button class="btn small" id="zoom25">25%</button>
                 <button class="btn small" id="zoom50">50%</button>
                 <button class="btn small" id="zoom75">75%</button>
@@ -117,18 +128,20 @@
             <button class="btn small" id="shareBtn">🔗 Поделиться</button>
         </div>
         <div class="main-container">
-            <div class="left-panel"><div class="table-section">
-                <div class="table-header">
-                    <div class="col-status">Статус <button class="add-status-btn" id="manageStatusesBtn">⚙️</button></div>
-                    <div class="col-name">Название</div>
-                    <div class="col-responsible">Отв.</div>
-                    <div class="col-start">Начало</div>
-                    <div class="col-end">Конец</div>
-                    <div class="col-drag"></div>
-                    <div class="col-copy"></div>
+            <div class="left-panel" id="leftPanel">
+                <div class="table-section">
+                    <div class="table-header">
+                        <div class="col-status">Статус <button class="add-status-btn" id="manageStatusesBtn">⚙️</button></div>
+                        <div class="col-name">Название</div>
+                        <div class="col-responsible">Отв.</div>
+                        <div class="col-start">Начало</div>
+                        <div class="col-end">Конец</div>
+                        <div class="col-drag"></div>
+                        <div class="col-copy"></div>
+                    </div>
+                    <div class="table-body" id="tableBody"></div>
                 </div>
-                <div class="table-body" id="tableBody"></div>
-            </div></div>
+            </div>
             <div class="gantt-panel"><div class="gantt-scroll">
                 <div class="gantt-time-header" id="timeHeader"></div>
                 <div class="gantt-body" id="ganttBody"></div>
@@ -241,7 +254,6 @@
             function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
             window.closeModal = closeModal;
 
-            
             // ===================== RENDER =====================
             function renderAll() { renderProjectSelect(); renderTable(); renderGantt(); }
             function renderProjectSelect() {
@@ -769,6 +781,12 @@
                 renderAll();
             }
 
+            // Переключение видимости дополнительных колонок
+            function toggleColumns() {
+                const panel = document.getElementById('leftPanel');
+                panel.classList.toggle('hide-extra');
+            }
+
             // Обработчики кнопок тулбара
             document.getElementById('addGroupBtn').addEventListener('click', addGroup);
             document.getElementById('addTaskBtn').addEventListener('click', showAddTaskModal);
@@ -777,6 +795,7 @@
             document.getElementById('renameBtn').addEventListener('click', renameProject);
             document.getElementById('newBtn').addEventListener('click', newProject);
             document.getElementById('deleteBtn').addEventListener('click', deleteProject);
+            document.getElementById('toggleColumnsBtn').addEventListener('click', toggleColumns);
 
             document.getElementById('zoom25').addEventListener('click', () => setZoom(0.25));
             document.getElementById('zoom50').addEventListener('click', () => setZoom(0.5));
@@ -797,5 +816,3 @@
     </script>
 </body>
 </html>
-
-         
