@@ -345,20 +345,20 @@
                 const compressed = LZString.compressToEncodedURIComponent(data);
                 const longUrl = window.location.origin + window.location.pathname + '#project=' + compressed;
                 try {
-                    const response = await fetch('https://api.1pt.co/addURL?long=' + encodeURIComponent(longUrl));
-                    const result = await response.json();
-                    if (result.short) {
-                        const shortUrl = 'https://1pt.co/' + result.short;
+                    // Используем TinyURL API
+                    const response = await fetch('https://tinyurl.com/api-create.php?url=' + encodeURIComponent(longUrl));
+                    if (!response.ok) throw new Error('Сервис недоступен');
+                    const shortUrl = await response.text();
+                    if (shortUrl && shortUrl.startsWith('http')) {
                         navigator.clipboard.writeText(shortUrl).then(() => alert('Супер-короткая ссылка скопирована!'));
                     } else {
-                        alert('Не удалось сократить ссылку');
+                        throw new Error('Пустой ответ');
                     }
                 } catch(e) {
-                    alert('Ошибка соединения с сервисом сокращения');
+                    alert('Не удалось сократить ссылку. Попробуйте позже.');
                 }
             });
 
-            
             function renderTable() {
                 const proj = getProject();
                 const tbody = document.getElementById('tableBody');
