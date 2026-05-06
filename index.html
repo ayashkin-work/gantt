@@ -30,6 +30,7 @@
         .col-name { flex:1; }
         .col-start, .col-end { width:90px; justify-content:center; }
         .col-drag { width:30px; justify-content:center; }
+        .col-responsible { width:70px; justify-content:center; }
         .table-body { flex:1; overflow-y:auto; }
         .row { display:flex; align-items:stretch; border-bottom:1px solid #f0f1f3; height: var(--row-height); }
         .row.group { background:#f8f9fa; cursor:pointer; font-weight:600; }
@@ -113,6 +114,7 @@
         (function() {
             const STORAGE_KEY = 'gantt_v9_shared';
             const DAY_PX = 32;
+            let dayPx = 32; // текущий масштаб
             let state = {
                 projects: [], activeProjectId: null,
                 customStatuses: ['Не начато','В работе','На проверке','Завершено','Просрочено'],
@@ -136,6 +138,17 @@
                     };
                 }
             }
+
+            // Добавляем поле responsible, если его нет
+            function ensureResponsibleField() {
+                state.projects.forEach(p => p.groups.forEach(g => g.tasks.forEach(t => {
+                    if (t.responsible === undefined) t.responsible = '';
+                })));
+                }
+                // Вызовите один раз после load()
+                load();
+                ensureResponsibleField();
+            
             function initDefault() {
                 state = {
                     projects: [{ id: genId(), name:'Мой проект', groups:[
@@ -200,18 +213,45 @@
                 const proj = getProject();
                 const tbody = document.getElementById('tableBody');
                 if (!proj || proj.groups.length===0) { tbody.innerHTML = '<div style="padding:20px;">Нет данных</div>'; return; }
+                // обновляем заголовок таблицы
+                const header = document.querySelector('.table-header');
+    header.innerHTML = `
+                    <div class="col-status">Статус <button class="add-status-btn" id="manageStatusesBtn">⚙️</button></div>
+                    <div class="col-name">Название</div>
+                    <div class="col-responsible">Отв.</div>
+                    <div class="col-start">Начало</div>
+                    <div class="col-end">Конец</div>
+                    <div class="col-drag"></div>
+                `;
+                // стили для новой колонки (добавьте в CSS, если нужно)
+                // .col-responsible { width:70px; justify-content:center; }
                 let html = '';
                 proj.groups.forEach(g => {
-                    html += `<div class="row group${g.expanded?'':' collapsed'}" data-group-id="${g.id}"><div class="col-status"></div><div class="col-name"><span class="expand-icon">▼</span><input class="name-input" value="${escapeHtml(g.title)}" data-id="${g.id}"></div><div class="col-start"></div><div class="col-end"></div><div class="col-drag"></div></div>`;
+                    html += `<div class="row group${g.expanded?'':' collapsed'}" data-group-id="${g.id}">
+                        <div class="col-status"></div>
+                        <div class="col-name"><span class="expand-icon">▼</span><input class="name-input" value="${escapeHtml(g.title)}" data-id="${g.id}"></div>
+                        <div class="col-responsible"></div>
+                        <div class="col-start"></div><div class="col-end"></div>
+                        <div class="col-drag"></div>
+                    </div>`;
                     if (g.expanded) g.tasks.forEach((t, idx) => {
                         const statusOptions = state.customStatuses.map(s => `<option value="${s}" ${t.status===s?'selected':''}>${s}</option>`).join('');
                         const doneClass = t.status === 'Завершено' ? ' status-done-bg' : '';
-                        html += `<div class="row task${doneClass}" data-task-id="${t.id}" data-group-id="${g.id}" data-idx="${idx}" draggable="true"><div class="col-status"><select class="status-select">${statusOptions}</select></div><div class="col-name"><input class="name-input" value="${escapeHtml(t.name)}" data-id="${t.id}"></div><div class="col-start"><input type="date" class="date-input-field" value="${t.startDate}" data-id="${t.id}" data-field="startDate"></div><div class="col-end"><input type="date" class="date-input-field" value="${t.endDate}" data-id="${t.id}" data-field="endDate"></div><div class="col-drag"><span class="drag-handle">⋮⋮</span></div></div>`;
+                        html += `<div class="row task${doneClass}" data-task-id="${t.id}" data-group-id="${g.id}" data-idx="${idx}" draggable="true">
+                            <div class="col-status"><select class="status-select">${statusOptions}</select></div>
+                            <div class="col-name"><input class="name-input" value="${escapeHtml(t.name)}" data-id="${t.id}"></div>
+                            <div class="col-responsible"><input class="responsible-input" value="${escapeHtml(t.responsible||'')}" data-id="${t.id}" style="width:60px;border:1px solid transparent;background:transparent;padding:4px 6px;border-radius:4px;font-size:13px;"></div>
+                            <div class="col-start"><input type="date" class="date-input-field" value="${t.startDate}" data-id="${t.id}" data-field="startDate"></div>
+                            <div class="col-end"><input type="date" class="date-input-field" value="${t.endDate}" data-id="${t.id}" data-field="endDate"></div>
+                            <div class="col-drag"><span class="drag-handle">⋮⋮</span></div>
+                        </div>`;
                     });
                 });
                 tbody.innerHTML = html;
                 attachTableEvents();
-            }
+                // повторно вешаем обработчик на кнопку статусов
+            document.getElementById('manageStatusesBtn').addEventListener('click', manageStatuses);
+        }
 
             function attachTableEvents() {
                 document.querySelectorAll('.row.group').forEach(row => {
@@ -230,6 +270,10 @@
                 }));
                 document.querySelectorAll('.date-input-field').forEach(inp => inp.addEventListener('change', function() {
                     updateTaskDate(this.dataset.id, this.dataset.field, this.value);
+                }));
+                document.querySelectorAll('.responsible-input').forEach(inp => inp.addEventListener('change', function() {
+    const id = this.dataset.id;
+                    updateTaskResponsible(id, this.value);
                 }));
 
                 let dragSrcId = null, dragSrcGroup = null, dragSrcIdx = null;
@@ -286,7 +330,7 @@
                 }));
                 if(!minD){ minD=new Date(); maxD=new Date(); maxD.setDate(maxD.getDate()+30); }
                 minD=new Date(minD); minD.setDate(minD.getDate()-3); maxD=new Date(maxD); maxD.setDate(maxD.getDate()+10);
-                const totalDays=Math.ceil((maxD-minD)/86400000), totalWidth=totalDays*32;
+                const totalDays=Math.ceil((maxD-minD)/86400000), totalWidth=totalDays*dayPx;
                 let monthsHtml='<div class="time-month-row">';
                 const months=[]; let cursor=new Date(minD);
                 while(cursor<=maxD){
@@ -294,14 +338,14 @@
                     if(!months.find(m=>m.key===key)) months.push({key, label:cursor.toLocaleDateString('ru-RU',{month:'long',year:'numeric'}), startDay:Math.ceil((cursor-minD)/86400000)});
                     cursor.setDate(cursor.getDate()+1);
                 }
-                for(let i=0;i<months.length;i++){ const m=months[i], next=i+1<months.length?months[i+1].startDay:totalDays; monthsHtml+=`<div class="month-label" style="width:${(next-m.startDay)*32}px;" data-month-key="${m.key}">${m.label} <span class="calendar-icon">📅</span></div>`; }
+                for(let i=0;i<months.length;i++){ const m=months[i], next=i+1<months.length?months[i+1].startDay:totalDays; monthsHtml+=`<div class="month-label" style="width:${(next-m.startDay)*dayPx}px;" data-month-key="${m.key}">${m.label} <span class="calendar-icon">📅</span></div>`; }
                 monthsHtml+='</div><div class="time-day-row">';
                 for(let d=0;d<totalDays;d++){ const date=new Date(minD); date.setDate(date.getDate()+d); monthsHtml+=`<div class="day-cell${isWeekend(date)?' weekend':''}${date.toDateString()===new Date().toDateString()?' today':''}" style="min-width:32px;">${date.getDate()}</div>`; }
                 header.innerHTML=monthsHtml;
                 document.querySelectorAll('.calendar-icon').forEach(icon=>icon.addEventListener('click', e=>{ e.stopPropagation(); openMonthCalendar(icon.parentElement.dataset.monthKey); }));
                 let bodyHtml=`<div style="position:relative; width:${totalWidth}px; min-width:100%;">`;
-                for(let d=0;d<totalDays;d++){ const date=new Date(minD); date.setDate(date.getDate()+d); if(isDayOff(date,proj)) bodyHtml+=`<div class="weekend-strip" style="left:${d*32}px; width:32px;"></div>`; }
-                const today=new Date(); if(today>=minD && today<=maxD) bodyHtml+=`<div class="today-line" style="left:${Math.ceil((today-minD)/86400000)*32}px;"></div>`;
+                for(let d=0;d<totalDays;d++){ const date=new Date(minD); date.setDate(date.getDate()+d); if(isDayOff(date,proj)) bodyHtml+=`<div class="weekend-strip" style="left:${d*dayPx}px; width:32px;"></div>`; }
+                const today=new Date(); if(today>=minD && today<=maxD) bodyHtml+=`<div class="today-line" style="left:${Math.ceil((today-minD)/86400000)*dayPx}px;"></div>`;
                 proj.groups.forEach(g=>{
                     bodyHtml+=`<div class="gantt-row group" style="width:${totalWidth}px;"></div>`;
                     if(g.expanded) g.tasks.forEach(t=>{
@@ -310,13 +354,13 @@
                         else {
                             let segs='';
                             intervals.forEach(seg=>{
-                                const left=Math.round((seg.start-minD)/86400000)*32, width=(Math.round((seg.end-seg.start)/86400000)+1)*32;
+                                const left=Math.round((seg.start-minD)/86400000)*dayPx, width=(Math.round((seg.end-seg.start)/86400000)+1)*dayPx;
                                 const done=t.status==='Завершено'?' status-done':'';
                                 segs+=`<div class="bar-segment${done}" style="left:${left}px;width:${width}px;" data-task-id="${t.id}">`;
                                 t.markers.forEach(m=>{
                                     const ms=new Date(m.startDate), me=new Date(m.endDate||m.startDate);
                                     if(isNaN(ms)) return;
-                                    const sx=((ms-minD)/86400000*32)-left+16, ex=((me-minD)/86400000*32)-left+16;
+                                    const sx=((ms-minD)/86400000*dayPx)-left+16, ex=((me-minD)/86400000*dayPx)-left+16;
                                     const style=getMarkerStyle(m.type);
                                     if(m.startDate===m.endDate) segs+=`<div class="marker" style="left:${sx}px; width:${style.size}px; height:${style.size}px; background:${style.color}; border-radius:${style.radius};" data-marker-id="${m.id}" data-task-id="${t.id}"></div>`;
                                     else {
@@ -376,15 +420,18 @@
                 const [year, month] = monthKey.split('-').map(Number);
                 const firstDay = new Date(year, month-1, 1), lastDay = new Date(year, month, 0);
                 let html = `<h3>Выходные (${firstDay.toLocaleDateString('ru-RU',{month:'long',year:'numeric'})})</h3>`;
-                html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">';
+    html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;" id="dayGrid">';
                 for (let d=new Date(firstDay); d<=lastDay; d.setDate(d.getDate()+1)) {
                     const ds = toLocalISO(d), off = isDayOff(ds, proj);
-                    html += `<div style="background:${off?'#fecaca':'#e8f5e9'}; padding:4px; text-align:center; cursor:pointer; border-radius:4px;" data-date="${ds}" class="day-toggle">${d.getDate()}</div>`;
-                }
-                html += '</div><div class="btn-row"><button class="btn" onclick="closeModal()">Отмена</button></div>';
-                document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay"><div class="modal" onclick="event.stopPropagation()">${html}</div></div>`;
-                document.querySelectorAll('.day-toggle').forEach(el => el.addEventListener('click', function(){
-                    const ds = this.dataset.date;
+        html += `<div style="background:${off?'#fecaca':'#e8f5e9'}; padding:4px; text-align:center; cursor:pointer; border-radius:4px; position:relative; z-index:1;" data-date="${ds}" class="day-toggle">${d.getDate()}</div>`;
+    }
+    html += '</div><div class="btn-row"><button class="btn" onclick="closeModal()">Отмена</button></div>';
+    document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay"><div class="modal" onclick="event.stopPropagation()">${html}</div></div>`;
+    // Делегирование клика
+    document.getElementById('dayGrid').addEventListener('click', function(e) {
+                    const toggle = e.target.closest('.day-toggle');
+                    if (!toggle) return;
+                    const ds = toggle.dataset.date;
                     const ov = proj.workingOverrides || {};
                     if (ov[ds]==='off') delete ov[ds];
                     else if (ov[ds]==='on') ov[ds]='off';
@@ -392,13 +439,13 @@
                     else ov[ds]='off';
                     proj.workingOverrides = ov;
                     save(); renderAll();
-                }));
+                });
             }
 
             function handleBarClick(taskId, e) {
                 const proj = getProject(); if (!proj) return;
                 const rect = e.currentTarget.getBoundingClientRect();
-                const dayOffset = Math.floor((e.clientX - rect.left) / 32);
+                const dayOffset = Math.floor((e.clientX - rect.left) / dayPx);
                 const minD = getMinDate(proj); const date = new Date(minD); date.setDate(date.getDate()+dayOffset);
                 showMarkerModal(taskId, toLocalISO(date));
             }
@@ -534,6 +581,11 @@
             function updateTaskName(id, val) { const proj=getProject(); const t=proj.groups.flatMap(g=>g.tasks).find(t=>t.id===id); if(t){t.name=val; save();} }
             function updateTaskStatus(id, val) { const proj=getProject(); const t=proj.groups.flatMap(g=>g.tasks).find(t=>t.id===id); if(t){t.status=val; save(); renderAll();} }
             function updateTaskDate(id, field, val) { if(!val) return; const proj=getProject(); for(const g of proj.groups){ const t=g.tasks.find(t=>t.id===id); if(t){t[field]=val; save(); renderAll(); return;} } }
+            function updateTaskResponsible(id, val) {
+                const proj = getProject();
+                const t = proj.groups.flatMap(g=>g.tasks).find(t=>t.id===id);
+                if (t) { t.responsible = val; save(); }
+            }
             function toggleGroup(id) { const proj=getProject(); const g=proj.groups.find(g=>g.id===id); if(g){g.expanded=!g.expanded; save(); renderAll();} }
 
             function addGroup() {
@@ -550,15 +602,34 @@
             function showAddTaskModal() {
                 const proj = getProject(); if (proj.groups.length===0) { alert('Создайте группу'); return; }
                 const opts = proj.groups.map(g=>`<option value="${g.id}">${escapeHtml(g.title)}</option>`).join('');
-                document.getElementById('modalContainer').innerHTML = `
-                <div class="modal-overlay" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()">
-                    <h3>Новая задача</h3><label>Название</label><input id="taskName"><label>Группа</label><select id="taskGroup">${opts}</select>
-                    <div class="btn-row"><button class="btn" onclick="closeModal()">Отмена</button><button class="btn accent" id="addTaskConfirm">Добавить</button></div>
-                </div></div>`;
-                document.getElementById('addTaskConfirm').onclick = () => {
-                    const name = document.getElementById('taskName').value.trim(), gid = document.getElementById('taskGroup').value;
-                    if (name && gid) { const g = proj.groups.find(g=>g.id===gid); if(g){ g.tasks.push({id:genId(), name, status:'Не начато', startDate:toLocalISO(new Date()), endDate:toLocalISO(new Date(Date.now()+5*86400000)), markers:[]}); g.expanded=true; save(); renderAll(); closeModal(); } }
-                };
+                    document.getElementById('modalContainer').innerHTML = `
+                    <div class="modal-overlay" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()">
+                        <h3>Новая задача</h3>
+                        <label>Название</label><input id="taskName">
+                        <label>Ответственный</label><input id="taskResponsible">
+                        <label>Группа</label><select id="taskGroup">${opts}</select>
+                        <div class="btn-row"><button class="btn" onclick="closeModal()">Отмена</button><button class="btn accent" id="addTaskConfirm">Добавить</button></div>
+                    </div></div>`;
+                    document.getElementById('addTaskConfirm').onclick = () => {
+                        const name = document.getElementById('taskName').value.trim();
+                        const responsible = document.getElementById('taskResponsible').value.trim();
+                        const gid = document.getElementById('taskGroup').value;
+                        if (name && gid) {
+                            const g = proj.groups.find(g=>g.id===gid);
+                            if (g) {
+                                g.tasks.push({
+                                    id: genId(), name, responsible,
+                                    status: 'Не начато',
+                                    startDate: toLocalISO(new Date()),
+                                    endDate: toLocalISO(new Date(Date.now()+5*86400000)),
+                                    markers: []
+                                });
+                                g.expanded = true;
+                                save(); renderAll(); closeModal();
+                            }
+                        }
+                    };
+                }
             }
 
             function newProject() { const n=prompt('Название проекта:'); if(n){ state.projects.push({id:genId(),name:n,groups:[],workingOverrides:{}}); state.activeProjectId=state.projects[state.projects.length-1].id; save(); renderAll(); } }
@@ -571,6 +642,14 @@
                 t.textContent = text; t.style.left = (x+15)+'px'; t.style.top = (y-10)+'px'; t.style.opacity = '1';
             }
             function hideTooltip() { document.getElementById('tooltip').style.opacity = '0'; }
+
+            <span style="display:flex;align-items:center;gap:4px;margin-left:8px;">
+                <button class="btn small" id="zoom50">50%</button>
+                <button class="btn small" id="zoom75">75%</button>
+                <button class="btn small" id="zoom100">100%</button>
+                <button class="btn small" id="zoom125">125%</button>
+                <button class="btn small" id="zoom150">150%</button>
+            </span>
 
             // Поделиться (исправленная версия)
             function shareProject() {
@@ -618,6 +697,17 @@
             document.getElementById('renameBtn').addEventListener('click', renameProject);
             document.getElementById('newBtn').addEventListener('click', newProject);
             document.getElementById('deleteBtn').addEventListener('click', deleteProject);
+
+            document.getElementById('zoom50').addEventListener('click', () => setZoom(0.5));
+            document.getElementById('zoom75').addEventListener('click', () => setZoom(0.75));
+            document.getElementById('zoom100').addEventListener('click', () => setZoom(1));
+            document.getElementById('zoom125').addEventListener('click', () => setZoom(1.25));
+            document.getElementById('zoom150').addEventListener('click', () => setZoom(1.5));
+
+            function setZoom(factor) {
+                dayPx = Math.round(32 * factor);
+                renderAll();
+            }
 
             // Глобальные функции для вызова из модалок
             window.manageStatuses = manageStatuses;
