@@ -7,7 +7,8 @@
     <style>
         :root {
             --blue: #2563eb; --blue-bar: #3b82f6; --green-bar: #10b981;
-            --row-height: 42px; --time-header-height: 56px; --border: #e0e0e0;
+            --row-height: 36px; --time-header-height: 48px; --border: #e0e0e0;
+            --control: #f59e0b; --delivery: #ef4444; --feedback: #fbbf24;
         }
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #e8eaed; display: flex; justify-content: center; min-height: 100vh; padding: 16px; }
@@ -25,7 +26,7 @@
         .left-panel.hide-extra { width: 340px; }
         .table-section { flex:1; display:flex; flex-direction:column; overflow:hidden; }
         .table-header { display:flex; background:#f1f3f4; font-weight:600; font-size:10px; text-transform:uppercase; color:#5f6368; border-bottom:2px solid #d0d5dd; height: var(--time-header-height); align-items:flex-end; }
-        .table-header>div { padding:6px 8px; border-right:1px solid #e0e0e0; display:flex; align-items:center; height:100%; }
+        .table-header>div { padding:4px 6px; border-right:1px solid #e0e0e0; display:flex; align-items:center; height:100%; }
         .col-status { width:130px; justify-content:center; position:relative; }
         .col-status .add-status-btn { position:absolute; right:2px; top:2px; background:none; border:none; font-size:12px; cursor:pointer; color:#888; }
         .col-name { flex:1.5; }
@@ -33,12 +34,9 @@
         .col-drag { width:30px; justify-content:center; }
         .col-copy { width:30px; justify-content:center; }
 
-        /* Скрытие дополнительных колонок */
         .left-panel.hide-extra .col-responsible,
         .left-panel.hide-extra .col-start,
-        .left-panel.hide-extra .col-end {
-            display: none;
-        }
+        .left-panel.hide-extra .col-end { display: none; }
         .left-panel.hide-extra .col-name { flex: 2; }
 
         .table-body { flex:1; overflow-y:auto; }
@@ -46,19 +44,18 @@
         .row.group { background:#f8f9fa; cursor:pointer; font-weight:600; }
         .row.task { background:#fff; transition: background 0.2s; }
         .row.task.status-done-bg { background: #e6f7ee; }
-        .row>div { padding:6px 8px; display:flex; align-items:center; border-right:1px solid #f3f4f6; font-size:13px; }
-        .drag-handle { cursor: grab; color: #aaa; font-size: 16px; }
+        .row>div { padding:4px 6px; display:flex; align-items:center; border-right:1px solid #f3f4f6; font-size:13px; }
+        .drag-handle { cursor: grab; color: #aaa; font-size: 14px; }
         .expand-icon { margin-right:4px; font-size:10px; transition:0.2s; }
         .row.group.collapsed .expand-icon { transform: rotate(-90deg); }
         input.name-input { border:1px solid transparent; background:transparent; padding:4px 6px; border-radius:4px; font-size:13px; width:100%; }
         .date-input-field { border:1px solid transparent; background:transparent; padding:4px 6px; border-radius:4px; font-size:12px; font-family: monospace; width:65px; text-align:center; }
-        .date-input-field.short-date { width:65px; }
         .status-select {
-            border:1px solid #d1d5db; border-radius:18px; padding:4px 24px 4px 8px;
+            border:1px solid #d1d5db; border-radius:18px; padding:3px 24px 3px 8px;
             font-size:10px; font-weight:600; text-transform:uppercase; background:#f3f4f6; width:110px; text-align:center;
             appearance:none;
             background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6"><path fill="%23666" d="M0 0l5 6 5-6z"/></svg>');
-            background-repeat:no-repeat; background-position: right 8px center;
+            background-repeat:no-repeat; background-position: right 6px center;
         }
 
         .gantt-panel { flex:1; display:flex; flex-direction:column; overflow:hidden; }
@@ -66,13 +63,14 @@
         .gantt-time-header { background:#f1f3f4; border-bottom:2px solid #d0d5dd; white-space:nowrap; overflow:hidden; height: var(--time-header-height); }
         .time-month-row { display:flex; }
         .time-day-row { display:flex; }
-        .month-label { display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px; color:#444; border-right:1px solid #d0d5dd; padding:0 6px; background:#e8eaef; height:28px; flex-shrink:0; position: relative; }
-        .month-label .calendar-icon { margin-left:4px; font-size:14px; cursor:pointer; opacity:0.5; }
-        .day-cell { display:inline-flex; align-items:center; justify-content:center; font-size:10px; color:#777; border-right:1px solid #eee; min-width:32px; height:28px; flex-shrink:0; }
+        .month-label { display:flex; align-items:center; justify-content:center; font-weight:700; font-size:11px; color:#444; border-right:1px solid #d0d5dd; padding:0 4px; background:#e8eaef; height:24px; flex-shrink:0; position: relative; }
+        .month-label .calendar-icon { margin-left:4px; font-size:13px; cursor:pointer; opacity:0.5; }
+        .day-cell { display:inline-flex; align-items:center; justify-content:center; font-size:9px; color:#777; border-right:1px solid #eee; min-width:32px; height:24px; flex-shrink:0; }
         .gantt-body { flex:1; overflow:auto; position:relative; }
         .gantt-row { position:relative; height: var(--row-height); border-bottom:1px solid #f0f1f3; white-space:nowrap; }
-        .bar-segment { position:absolute; top:50%; transform:translateY(-50%); height:22px; background:var(--blue-bar); border-radius:5px; cursor:pointer; z-index:2; }
+        .bar-segment { position:absolute; top:50%; transform:translateY(-50%); height:20px; background:var(--blue-bar); border-radius:4px; cursor:pointer; z-index:2; }
         .bar-segment.status-done { background:var(--green-bar); }
+
         /* Точки */
         .marker {
             position:absolute; top:50%; transform:translate(-50%,-50%);
@@ -81,15 +79,17 @@
         .marker.control { width:10px; height:10px; background: var(--control); border-radius: 2px; }
         .marker.delivery { width:12px; height:12px; background: var(--delivery); border-radius: 50%; }
         .marker.feedback { width:12px; height:12px; background: var(--feedback); border-radius: 50%; }
-        /* Линии промежутков */
-        .marker-range-line {
-            position:absolute; top:50%; transform:translateY(-50%);
-            height:4px; z-index:3; cursor: pointer; opacity: 0.85;
-            border-radius: 2px;
+
+        /* Сетка */
+        .grid-line-horiz {
+            position: absolute; left: 0; right: 0; height: 1px;
+            background: rgba(0,0,0,0.05); pointer-events: none; z-index: 0;
         }
-        .marker-range-line.control { background: var(--control); }
-        .marker-range-line.delivery { background: var(--delivery); }
-        .marker-range-line.feedback { background: var(--feedback); }
+        .grid-line-vert {
+            position: absolute; top: 0; bottom: 0; width: 1px;
+            background: rgba(0,0,0,0.05); pointer-events: none; z-index: 0;
+        }
+
         .weekend-strip { position:absolute; top:0; bottom:0; width:32px; background:rgba(0,0,0,0.03); pointer-events:none; z-index:0; }
         .today-line { position:absolute; top:0; bottom:0; width:2px; background:#f59e0b; opacity:0.6; z-index:3; }
 
@@ -386,6 +386,7 @@
                 save(); renderAll();
             }
 
+            
             function renderGantt() {
                 const proj = getProject();
                 const header = document.getElementById('timeHeader'), body = document.getElementById('ganttBody');
@@ -412,18 +413,36 @@
                 for(let d=0;d<totalDays;d++){ const date=new Date(minD); date.setDate(date.getDate()+d); monthsHtml+=`<div class="day-cell${isWeekend(date)?' weekend':''}${date.toDateString()===new Date().toDateString()?' today':''}" style="min-width:${dayPx}px;">${date.getDate()}</div>`; }
                 header.innerHTML=monthsHtml;
                 document.querySelectorAll('.calendar-icon').forEach(icon=>icon.addEventListener('click', e=>{ e.stopPropagation(); openMonthCalendar(icon.parentElement.dataset.monthKey); }));
+
                 let bodyHtml=`<div style="position:relative; width:${totalWidth}px; min-width:100%;">`;
+                // Сетка
+                for(let d=0;d<totalDays;d++){
+                    bodyHtml+=`<div class="grid-line-vert" style="left:${d*dayPx}px; width:1px; opacity:0.3;"></div>`;
+                }
+                // Горизонтальные линии будем рисовать позже, после добавления строк
+
                 for(let d=0;d<totalDays;d++){ const date=new Date(minD); date.setDate(date.getDate()+d); if(isDayOff(date,proj)) bodyHtml+=`<div class="weekend-strip" style="left:${d*dayPx}px; width:${dayPx}px;"></div>`; }
                 const today=new Date(); if(today>=minD && today<=maxD) bodyHtml+=`<div class="today-line" style="left:${Math.ceil((today-minD)/86400000)*dayPx}px;"></div>`;
+
+                let rowIndex = 0;
                 proj.groups.forEach(g=>{
                     bodyHtml+=`<div class="gantt-row group" style="width:${totalWidth}px;"></div>`;
+                    // Горизонтальная линия после каждой строки (кроме последней)
+                    bodyHtml+=`<div class="grid-line-horiz" style="top:${(rowIndex+1)*dayPx}px; width:${totalWidth}px;"></div>`;
+                    rowIndex+=2; // группа + линия? упростим: линии будем рисовать по позициям строк
                     if(g.expanded) g.tasks.forEach(t=>{
                         if (!t.startDate || !t.endDate) {
                             bodyHtml += `<div class="gantt-row" style="width:${totalWidth}px;"></div>`;
+                            bodyHtml+=`<div class="grid-line-horiz" style="top:${rowIndex*36}px; width:${totalWidth}px;"></div>`;
+                            rowIndex++;
                             return;
                         }
                         const intervals=getIntervals(t,proj);
-                        if(!intervals.length) bodyHtml+=`<div class="gantt-row" style="width:${totalWidth}px;"></div>`;
+                        if(!intervals.length) {
+                            bodyHtml+=`<div class="gantt-row" style="width:${totalWidth}px;"></div>`;
+                            bodyHtml+=`<div class="grid-line-horiz" style="top:${rowIndex*36}px; width:${totalWidth}px;"></div>`;
+                            rowIndex++;
+                        }
                         else {
                             let segs='';
                             intervals.forEach(seg=>{
@@ -433,14 +452,17 @@
                                 t.markers.forEach(m=>{
                                     const ms=new Date(m.startDate), me=new Date(m.endDate||m.startDate);
                                     if(isNaN(ms)) return;
-                                    const sx=((ms-minD)/86400000*dayPx)-left+dayPx/2, ex=((me-minD)/86400000*dayPx)-left+dayPx/2;
+                                    const sx=((ms-minD)/86400000*dayPx)-left+dayPx/2;
+                                    const ex=((me-minD)/86400000*dayPx)-left+dayPx/2;
                                     const style = getMarkerStyle(m.type);
                                     if(m.startDate===m.endDate){
                                         segs+=`<div class="marker ${m.type||'control'}" style="left:${sx}px; width:${style.size}px; height:${style.size}px; background:${style.color}; border-radius:${style.radius};" data-marker-id="${m.id}" data-task-id="${t.id}"></div>`;
                                     } else {
-                                        const lineLeft = Math.min(sx, ex) - dayPx/2;
-                                        const lineWidth = Math.abs(ex - sx) + dayPx;
-                                        segs+=`<div style="position:absolute; left:${lineLeft}px; top:50%; transform:translateY(-50%); height:6px; width:${lineWidth}px; background:${style.color}; opacity:0.9; z-index:4; border-radius:2px;" data-marker-id="${m.id}" data-task-id="${t.id}"></div>`;
+                                        const size = style.size;
+                                        // Линия строго между краями точек
+                                        const lineLeft = sx + size/2;
+                                        const lineWidth = (ex - size/2) - lineLeft;
+                                        segs+=`<div style="position:absolute; left:${lineLeft}px; top:50%; transform:translateY(-50%); height:4px; width:${lineWidth}px; background:${style.color}; opacity:0.85; z-index:4; border-radius:2px;" data-marker-id="${m.id}" data-task-id="${t.id}"></div>`;
                                         segs+=`<div class="marker ${m.type||'control'}" style="left:${sx}px; width:${style.size}px; height:${style.size}px; background:${style.color}; border-radius:${style.radius};" data-marker-id="${m.id}" data-task-id="${t.id}"></div>`;
                                         segs+=`<div class="marker ${m.type||'control'}" style="left:${ex}px; width:${style.size}px; height:${style.size}px; background:${style.color}; border-radius:${style.radius};"></div>`;
                                     }
@@ -448,6 +470,8 @@
                                 segs+='</div>';
                             });
                             bodyHtml+=`<div class="gantt-row" style="width:${totalWidth}px;">${segs}</div>`;
+                            bodyHtml+=`<div class="grid-line-horiz" style="top:${rowIndex*36}px; width:${totalWidth}px;"></div>`;
+                            rowIndex++;
                         }
                     });
                 });
@@ -457,13 +481,13 @@
                 bodyEl.onscroll=()=>{ document.getElementById('timeHeader').scrollLeft=bodyEl.scrollLeft; document.getElementById('tableBody').scrollTop=bodyEl.scrollTop; };
                 document.getElementById('tableBody').onscroll=()=>{ bodyEl.scrollTop=document.getElementById('tableBody').scrollTop; };
                 bodyEl.onclick=e=>{
-                    const marker=e.target.closest('.marker') || e.target.closest('.marker-range-line');
+                    const marker=e.target.closest('.marker') || e.target.closest('[data-marker-id]');
                     if(marker){ e.stopPropagation(); handleMarkerClick(marker.dataset.taskId, marker.dataset.markerId); return; }
                     const seg=e.target.closest('.bar-segment');
                     if(seg) handleBarClick(seg.dataset.taskId, e);
                 };
                 bodyEl.onmouseover=function(e){
-                    const marker=e.target.closest('.marker') || e.target.closest('.marker-range-line');
+                    const marker=e.target.closest('.marker') || e.target.closest('[data-marker-id]');
                     if(marker){
                         const taskId=marker.dataset.taskId;
                         const proj=getProject();
@@ -479,16 +503,17 @@
                     }
                     hideTooltip();
                 };
-                bodyEl.onmouseout=function(e){ if(!e.target.closest('.marker') && !e.target.closest('.marker-range-line')) hideTooltip(); };
+                bodyEl.onmouseout=function(e){ if(!e.target.closest('.marker') && !e.target.closest('[data-marker-id]')) hideTooltip(); };
             }
 
             function getMarkerStyle(type) {
-                const def = state.markerTypes[type] || state.markerTypes['control'];
-                const scale = Math.max(0.4, dayPx / 32);
+                const def = state.markerTypes[type] || state.markerTypes.control;
+                const scale = Math.max(0.3, dayPx / 32);
                 let baseSize = 10;
-                if (def.shape === 'circle') baseSize = 12;
-                else if (def.shape === 'square') baseSize = 12;
-                const size = Math.round(baseSize * scale);
+                if (def.shape === 'circle') baseSize = 10;
+                else if (def.shape === 'diamond') baseSize = 9;
+                else baseSize = 10;
+                const size = Math.max(6, Math.round(baseSize * scale));
                 let radius = '2px';
                 if (def.shape === 'circle') radius = '50%';
                 else if (def.shape === 'diamond') radius = '2px';
@@ -496,7 +521,6 @@
                 return { color: def.color, shape: def.shape, radius, size };
             }
 
-            
             function openMonthCalendar(monthKey) {
                 const proj = getProject();
                 const [year, month] = monthKey.split('-').map(Number);
@@ -537,7 +561,8 @@
                 if (task) { const m = task.markers.find(m=>m.id===markerId); if (m) showMarkerEditModal(taskId, m); }
             }
 
-            // Модалки
+            
+            // ===================== MODALS & CRUD =====================
             function showMarkerModal(taskId, startDate) {
                 const typesHtml = Object.entries(state.markerTypes).map(([t,o]) => `<option value="${t}">${o.label}</option>`).join('');
                 document.getElementById('modalContainer').innerHTML = `
