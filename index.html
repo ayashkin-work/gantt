@@ -425,11 +425,9 @@
                 const today=new Date(); if(today>=minD && today<=maxD) bodyHtml+=`<div class="today-line" style="left:${Math.ceil((today-minD)/86400000)*dayPx}px;"></div>`;
 
                 let rowIndex = 0;
-                proj.groups.forEach(g=>{
+                                proj.groups.forEach(g=>{
                     bodyHtml+=`<div class="gantt-row group" style="width:${totalWidth}px;"></div>`;
-                    // Горизонтальная линия после каждой строки (кроме последней)
-                    bodyHtml+=`<div class="grid-line-horiz" style="top:${(rowIndex+1)*dayPx}px; width:${totalWidth}px;"></div>`;
-                    rowIndex+=2; // группа + линия? упростим: линии будем рисовать по позициям строк
+                    rowIndex++; // группа без горизонтальной линии
                     if(g.expanded) g.tasks.forEach(t=>{
                         if (!t.startDate || !t.endDate) {
                             bodyHtml += `<div class="gantt-row" style="width:${totalWidth}px;"></div>`;
@@ -459,7 +457,6 @@
                                         segs+=`<div class="marker ${m.type||'control'}" style="left:${sx}px; width:${style.size}px; height:${style.size}px; background:${style.color}; border-radius:${style.radius};" data-marker-id="${m.id}" data-task-id="${t.id}"></div>`;
                                     } else {
                                         const size = style.size;
-                                        // Линия строго между краями точек
                                         const lineLeft = sx + size/2;
                                         const lineWidth = (ex - size/2) - lineLeft;
                                         segs+=`<div style="position:absolute; left:${lineLeft}px; top:50%; transform:translateY(-50%); height:4px; width:${lineWidth}px; background:${style.color}; opacity:0.85; z-index:4; border-radius:2px;" data-marker-id="${m.id}" data-task-id="${t.id}"></div>`;
