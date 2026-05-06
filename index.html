@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Гант – финальная версия</title>
-    <!-- LZ-String для сжатия ссылок -->
     <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
     <style>
         :root {
@@ -211,11 +210,7 @@
 
             function genId() { return Date.now() + '_' + Math.random().toString(36).slice(2,6); }
             function toLocalISO(date) { const d=new Date(date); return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2); }
-            function formatDateShort(iso) {
-                if (!iso) return '';
-                const d = new Date(iso);
-                return ('0'+d.getDate()).slice(-2) + '.' + ('0'+(d.getMonth()+1)).slice(-2);
-            }
+            function formatDateShort(iso) { if (!iso) return ''; const d = new Date(iso); return ('0'+d.getDate()).slice(-2) + '.' + ('0'+(d.getMonth()+1)).slice(-2); }
             function parseDateShort(str) {
                 if (!str) return null;
                 const parts = str.split('.');
@@ -262,101 +257,6 @@
                 sel.innerHTML = state.projects.map(p => `<option value="${p.id}" ${p.id===state.activeProjectId?'selected':''}>${escapeHtml(p.name)}</option>`).join('');
                 sel.onchange = () => { state.activeProjectId = sel.value; save(); renderAll(); };
             }
-
-            function renderTable() {
-                const proj = getProject();
-                const tbody = document.getElementById('tableBody');
-                if (!proj || proj.groups.length===0) { tbody.innerHTML = '<div style="padding:20px;">Нет данных</div>'; return; }
-                let html = '';
-                proj.groups.forEach(g => {
-                    html += `<div class="row group${g.expanded?'':' collapsed'}" data-group-id="${g.id}">
-                        <div class="col-status"></div>
-                        <div class="col-name"><span class="expand-icon">▼</span><input class="name-input" value="${escapeHtml(g.title)}" data-id="${g.id}"></div>
-                        <div class="col-responsible"></div>
-                        <div class="col-start"></div><div class="col-end"></div>
-                        <div class="col-drag"></div>
-                        <div class="col-copy"></div>
-                    </div>`;
-                    if (g.expanded) g.tasks.forEach((t, idx) => {
-                        const statusOptions = state.customStatuses.map(s => `<option value="${s}" ${t.status===s?'selected':''}>${s}</option>`).join('');
-                        const doneClass = t.status === 'Завершено' ? ' status-done-bg' : '';
-                        html += `<div class="row task${doneClass}" data-task-id="${t.id}" data-group-id="${g.id}" data-idx="${idx}" draggable="true">
-                            <div class="col-status"><select class="status-select">${statusOptions}</select></div>
-                            <div class="col-name"><input class="name-input" value="${escapeHtml(t.name)}" data-id="${t.id}"></div>
-                            <div class="col-responsible"><input class="responsible-input" value="${escapeHtml(t.responsible||'')}" data-id="${t.id}" style="width:60px;border:1px solid transparent;background:transparent;padding:4px 6px;border-radius:4px;font-size:13px;" placeholder="Имя"></div>
-                            <div class="col-start"><input type="text" class="date-input-field short-date" value="${t.startDate ? formatDateShort(t.startDate) : ''}" data-id="${t.id}" data-field="startDate" placeholder="ДД.ММ"></div>
-                            <div class="col-end"><input type="text" class="date-input-field short-date" value="${t.endDate ? formatDateShort(t.endDate) : ''}" data-id="${t.id}" data-field="endDate" placeholder="ДД.ММ"></div>
-                            <div class="col-drag"><span class="drag-handle">⋮⋮</span></div>
-                            <div class="col-copy"><button class="btn small copy-task-btn" data-task-id="${t.id}" title="Копировать задачу">📋</button></div>
-                        </div>`;
-                    });
-                });
-                tbody.innerHTML = html;
-                attachTableEvents();
-            }
-
-            function attachTableEvents() {
-                // ... (весь код событий, как в прошлой версии, без изменений)
-            }
-
-            function renderGantt() {
-                // ... (весь код диаграммы, как в прошлой версии, без изменений)
-            }
-
-            function shareProject() {
-                const proj = getProject(); if (!proj) { alert('Нет активного проекта'); return; }
-                const data = JSON.stringify(proj);
-                const compressed = LZString.compressToEncodedURIComponent(data);
-                const url = window.location.origin + window.location.pathname + '#project=' + compressed;
-                navigator.clipboard.writeText(url).then(() => alert('Ссылка скопирована!'));
-            }
-
-            function importFromHash() {
-                const hash = window.location.hash;
-                if (hash.startsWith('#project=')) {
-                    const encoded = hash.slice('#project='.length);
-                    try {
-                        const json = LZString.decompressFromEncodedURIComponent(encoded);
-                        const imported = JSON.parse(json);
-                        if (imported.id && imported.groups) {
-                            const exists = state.projects.find(p => p.id === imported.id);
-                            if (exists) Object.assign(exists, imported);
-                            else state.projects.push(imported);
-                            state.activeProjectId = imported.id;
-                            save();
-                            renderAll();
-                            window.removeEventListener('hashchange', importFromHash);
-                            window.location.hash = '';
-                            setTimeout(() => window.addEventListener('hashchange', importFromHash), 100);
-                        }
-                    } catch(e) { alert('Некорректная ссылка'); }
-                }
-            }
-            window.addEventListener('hashchange', importFromHash);
-            if (window.location.hash.startsWith('#project=')) {
-                setTimeout(importFromHash, 100);
-            }
-
-            // Супер-короткая ссылка
-            document.getElementById('superShortBtn').addEventListener('click', async () => {
-                const proj = getProject(); if (!proj) { alert('Нет активного проекта'); return; }
-                const data = JSON.stringify(proj);
-                const compressed = LZString.compressToEncodedURIComponent(data);
-                const longUrl = window.location.origin + window.location.pathname + '#project=' + compressed;
-                try {
-                    // Используем TinyURL API
-                    const response = await fetch('https://tinyurl.com/api-create.php?url=' + encodeURIComponent(longUrl));
-                    if (!response.ok) throw new Error('Сервис недоступен');
-                    const shortUrl = await response.text();
-                    if (shortUrl && shortUrl.startsWith('http')) {
-                        navigator.clipboard.writeText(shortUrl).then(() => alert('Супер-короткая ссылка скопирована!'));
-                    } else {
-                        throw new Error('Пустой ответ');
-                    }
-                } catch(e) {
-                    alert('Не удалось сократить ссылку. Попробуйте позже.');
-                }
-            });
 
             function renderTable() {
                 const proj = getProject();
@@ -509,7 +409,6 @@
                 document.querySelectorAll('.calendar-icon').forEach(icon=>icon.addEventListener('click', e=>{ e.stopPropagation(); openMonthCalendar(icon.parentElement.dataset.monthKey); }));
 
                 let bodyHtml=`<div style="position:relative; width:${totalWidth}px; min-width:100%;">`;
-                // Сетка
                 for(let d=0;d<totalDays;d++){
                     bodyHtml+=`<div class="grid-line-vert" style="left:${d*dayPx}px; width:1px; opacity:0.3;"></div>`;
                 }
@@ -778,9 +677,8 @@
                 for (const g of proj.groups) {
                     const t = g.tasks.find(t => t.id === id);
                     if (t) {
-                        if (!val || val.trim() === '') {
-                            t[field] = '';
-                        } else {
+                        if (!val || val.trim() === '') { t[field] = ''; }
+                        else {
                             const parsed = parseDateShort(val);
                             if (!parsed) { alert('Введите дату как ДД.ММ'); renderAll(); return; }
                             t[field] = toLocalISO(parsed);
@@ -826,13 +724,7 @@
                     if (name && gid) {
                         const g = proj.groups.find(g=>g.id===gid);
                         if (g) {
-                            g.tasks.push({
-                                id: genId(), name, responsible,
-                                status: 'Не начато',
-                                startDate: toLocalISO(new Date()),
-                                endDate: toLocalISO(new Date(Date.now()+5*86400000)),
-                                markers: []
-                            });
+                            g.tasks.push({ id: genId(), name, responsible, status: 'Не начато', startDate: toLocalISO(new Date()), endDate: toLocalISO(new Date(Date.now()+5*86400000)), markers: [] });
                             g.expanded = true;
                             save(); renderAll(); closeModal();
                         }
@@ -850,7 +742,7 @@
             }
             function hideTooltip() { document.getElementById('tooltip').style.opacity = '0'; }
 
-            // Поделиться (с LZ-String)
+            // Поделиться (LZ-String)
             function shareProject() {
                 const proj = getProject(); if (!proj) { alert('Нет активного проекта'); return; }
                 const data = JSON.stringify(proj);
@@ -881,29 +773,7 @@
                 }
             }
             window.addEventListener('hashchange', importFromHash);
-            if (window.location.hash.startsWith('#project=')) {
-                setTimeout(importFromHash, 100);
-            }
-
-            // Супер-короткая ссылка
-            document.getElementById('superShortBtn').addEventListener('click', async () => {
-                const proj = getProject(); if (!proj) { alert('Нет активного проекта'); return; }
-                const data = JSON.stringify(proj);
-                const compressed = LZString.compressToEncodedURIComponent(data);
-                const longUrl = window.location.origin + window.location.pathname + '#project=' + compressed;
-                try {
-                    const response = await fetch('https://api.1pt.co/addURL?long=' + encodeURIComponent(longUrl));
-                    const result = await response.json();
-                    if (result.short) {
-                        const shortUrl = 'https://1pt.co/' + result.short;
-                        navigator.clipboard.writeText(shortUrl).then(() => alert('Супер-короткая ссылка скопирована!'));
-                    } else {
-                        alert('Не удалось сократить ссылку');
-                    }
-                } catch(e) {
-                    alert('Ошибка соединения с сервисом сокращения');
-                }
-            });
+            if (window.location.hash.startsWith('#project=')) { setTimeout(importFromHash, 100); }
 
             function setZoom(factor) {
                 savedZoom = factor;
@@ -912,12 +782,8 @@
                 renderAll();
             }
 
-            function toggleColumns() {
-                const panel = document.getElementById('leftPanel');
-                panel.classList.toggle('hide-extra');
-            }
+            function toggleColumns() { document.getElementById('leftPanel').classList.toggle('hide-extra'); }
 
-            // Обработчики кнопок
             document.getElementById('addGroupBtn').addEventListener('click', addGroup);
             document.getElementById('addTaskBtn').addEventListener('click', showAddTaskModal);
             document.getElementById('manageStatusesBtn').addEventListener('click', manageStatuses);
@@ -926,21 +792,15 @@
             document.getElementById('newBtn').addEventListener('click', newProject);
             document.getElementById('deleteBtn').addEventListener('click', deleteProject);
             document.getElementById('toggleColumnsBtn').addEventListener('click', toggleColumns);
-
             document.getElementById('zoom25').addEventListener('click', () => setZoom(0.25));
             document.getElementById('zoom50').addEventListener('click', () => setZoom(0.5));
             document.getElementById('zoom75').addEventListener('click', () => setZoom(0.75));
             document.getElementById('zoom150').addEventListener('click', () => setZoom(1.5));
             document.getElementById('applyZoom').addEventListener('click', () => {
                 const val = parseInt(document.getElementById('customZoom').value);
-                if (!isNaN(val) && val >= 10 && val <= 200) {
-                    setZoom(val / 100);
-                    document.getElementById('customZoom').value = val;
-                }
+                if (!isNaN(val) && val >= 10 && val <= 200) { setZoom(val / 100); document.getElementById('customZoom').value = val; }
             });
-            document.getElementById('customZoom').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') document.getElementById('applyZoom').click();
-            });
+            document.getElementById('customZoom').addEventListener('keypress', (e) => { if (e.key === 'Enter') document.getElementById('applyZoom').click(); });
             document.getElementById('customZoom').value = Math.round(savedZoom * 100);
 
             window.manageStatuses = manageStatuses;
@@ -953,5 +813,3 @@
     </script>
 </body>
 </html>
-
-         
