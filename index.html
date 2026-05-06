@@ -68,11 +68,10 @@
         .day-cell { display:inline-flex; align-items:center; justify-content:center; font-size:9px; color:#777; border-right:1px solid #eee; min-width:32px; height:24px; flex-shrink:0; }
         .gantt-body { flex:1; overflow:auto; position:relative; }
         .gantt-row { position:relative; height: var(--row-height); border-bottom:1px solid #f0f1f3; white-space:nowrap; }
-        .gantt-row.group { background:#f8f9fa; z-index: 1; position: relative; }
+        .gantt-row.group { background:#f8f9fa; z-index:1; position:relative; }
         .bar-segment { position:absolute; top:50%; transform:translateY(-50%); height:20px; background:var(--blue-bar); border-radius:4px; cursor:pointer; z-index:2; }
         .bar-segment.status-done { background:var(--green-bar); }
 
-        /* Точки */
         .marker {
             position:absolute; top:50%; transform:translate(-50%,-50%);
             cursor:pointer; z-index:5; border:2px solid #fff; box-sizing: content-box;
@@ -81,15 +80,8 @@
         .marker.delivery { width:12px; height:12px; background: var(--delivery); border-radius: 50%; }
         .marker.feedback { width:12px; height:12px; background: var(--feedback); border-radius: 50%; }
 
-        /* Сетка */
-        .grid-line-horiz {
-            position: absolute; left: 0; right: 0; height: 1px;
-            background: rgba(0,0,0,0.05); pointer-events: none; z-index: 0;
-        }
-        .grid-line-vert {
-            position: absolute; top: 0; bottom: 0; width: 1px;
-            background: rgba(0,0,0,0.05); pointer-events: none; z-index: 0;
-        }
+        .grid-line-horiz { position: absolute; left: 0; right: 0; height: 1px; background: rgba(0,0,0,0.05); pointer-events: none; z-index: 0; }
+        .grid-line-vert { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,0.05); pointer-events: none; z-index: 0; }
 
         .weekend-strip { position:absolute; top:0; bottom:0; width:32px; background:rgba(0,0,0,0.03); pointer-events:none; z-index:0; }
         .today-line { position:absolute; top:0; bottom:0; width:2px; background:#f59e0b; opacity:0.6; z-index:3; }
@@ -123,8 +115,8 @@
                 <button class="btn small" id="zoom25">25%</button>
                 <button class="btn small" id="zoom50">50%</button>
                 <button class="btn small" id="zoom75">75%</button>
-                <button class="btn small" id="zoom100">100%</button>
-                <button class="btn small" id="zoom125">125%</button>
+                <input type="number" id="customZoom" value="100" style="width:55px; height:28px; text-align:center; font-size:12px;" min="10" max="200" step="5">
+                <button class="btn small" id="applyZoom">Применить</button>
                 <button class="btn small" id="zoom150">150%</button>
             </span>
             <button class="btn small" id="shareBtn">🔗 Поделиться</button>
@@ -158,6 +150,7 @@
             const STORAGE_KEY = 'gantt_v9_shared';
             const DAY_PX = 32;
             let dayPx = 32;
+            let savedZoom = 1;
             let state = {
                 projects: [], activeProjectId: null,
                 customStatuses: ['Не начато','В работе','На проверке','Завершено','Просрочено'],
@@ -181,6 +174,11 @@
                     };
                 }
                 ensureResponsibleField();
+                const zoomRaw = localStorage.getItem('gantt_zoom');
+                if (zoomRaw !== null) {
+                    savedZoom = parseFloat(zoomRaw);
+                    dayPx = Math.round(32 * savedZoom);
+                }
             }
             function initDefault() {
                 state = {
@@ -256,7 +254,6 @@
             function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
             window.closeModal = closeModal;
 
-            // ===================== RENDER =====================
             function renderAll() { renderProjectSelect(); renderTable(); renderGantt(); }
             function renderProjectSelect() {
                 const sel = document.getElementById('projectSelect');
@@ -387,7 +384,6 @@
                 save(); renderAll();
             }
 
-            
             function renderGantt() {
                 const proj = getProject();
                 const header = document.getElementById('timeHeader'), body = document.getElementById('ganttBody');
@@ -416,19 +412,16 @@
                 document.querySelectorAll('.calendar-icon').forEach(icon=>icon.addEventListener('click', e=>{ e.stopPropagation(); openMonthCalendar(icon.parentElement.dataset.monthKey); }));
 
                 let bodyHtml=`<div style="position:relative; width:${totalWidth}px; min-width:100%;">`;
-                // Сетка
                 for(let d=0;d<totalDays;d++){
                     bodyHtml+=`<div class="grid-line-vert" style="left:${d*dayPx}px; width:1px; opacity:0.3;"></div>`;
                 }
-                // Горизонтальные линии будем рисовать позже, после добавления строк
-
                 for(let d=0;d<totalDays;d++){ const date=new Date(minD); date.setDate(date.getDate()+d); if(isDayOff(date,proj)) bodyHtml+=`<div class="weekend-strip" style="left:${d*dayPx}px; width:${dayPx}px;"></div>`; }
                 const today=new Date(); if(today>=minD && today<=maxD) bodyHtml+=`<div class="today-line" style="left:${Math.ceil((today-minD)/86400000)*dayPx}px;"></div>`;
 
                 let rowIndex = 0;
-                                proj.groups.forEach(g=>{
+                proj.groups.forEach(g=>{
                     bodyHtml+=`<div class="gantt-row group" style="width:${totalWidth}px;"></div>`;
-                    rowIndex++; // группа без горизонтальной линии
+                    rowIndex++;
                     if(g.expanded) g.tasks.forEach(t=>{
                         if (!t.startDate || !t.endDate) {
                             bodyHtml += `<div class="gantt-row" style="width:${totalWidth}px;"></div>`;
@@ -507,11 +500,10 @@
             function getMarkerStyle(type) {
                 const def = state.markerTypes[type] || state.markerTypes.control;
                 const scale = Math.max(0.3, dayPx / 32);
-                let baseSize = 10;
+                let baseSize = 8;
                 if (def.shape === 'circle') baseSize = 10;
-                else if (def.shape === 'diamond') baseSize = 9;
-                else baseSize = 10;
-                const size = Math.max(6, Math.round(baseSize * scale));
+                else if (def.shape === 'diamond') baseSize = 7;
+                const size = Math.max(5, Math.round(baseSize * scale));
                 let radius = '2px';
                 if (def.shape === 'circle') radius = '50%';
                 else if (def.shape === 'diamond') radius = '2px';
@@ -559,8 +551,6 @@
                 if (task) { const m = task.markers.find(m=>m.id===markerId); if (m) showMarkerEditModal(taskId, m); }
             }
 
-            
-            // ===================== MODALS & CRUD =====================
             function showMarkerModal(taskId, startDate) {
                 const typesHtml = Object.entries(state.markerTypes).map(([t,o]) => `<option value="${t}">${o.label}</option>`).join('');
                 document.getElementById('modalContainer').innerHTML = `
@@ -669,7 +659,6 @@
                 };
             }
 
-            // CRUD маркеров и полей
             function addMarker(taskId, s, e, type, comment) {
                 const proj = getProject(); if (!proj) return;
                 for (const g of proj.groups) { const task = g.tasks.find(t=>t.id===taskId); if(task){ task.markers.push({id:genId(), startDate:s, endDate:e, type, comment}); save(); renderAll(); return; } }
@@ -757,14 +746,12 @@
             function renameProject() { const proj=getProject(); if(!proj)return; const n=prompt('Новое название:',proj.name); if(n){ proj.name=n; save(); renderAll(); } }
             function deleteProject() { if(state.projects.length<=1){ alert('Нельзя удалить последний'); return; } if(confirm('Удалить проект?')){ state.projects=state.projects.filter(p=>p.id!==state.activeProjectId); state.activeProjectId=state.projects[0].id; save(); renderAll(); } }
 
-            // Тултип
             function showTooltip(x, y, text) {
                 const t = document.getElementById('tooltip');
                 t.textContent = text; t.style.left = (x+15)+'px'; t.style.top = (y-10)+'px'; t.style.opacity = '1';
             }
             function hideTooltip() { document.getElementById('tooltip').style.opacity = '0'; }
 
-            // Поделиться
             function shareProject() {
                 const proj = getProject(); if (!proj) { alert('Нет активного проекта'); return; }
                 const data = JSON.stringify(proj);
@@ -799,19 +786,18 @@
                 setTimeout(importFromHash, 100);
             }
 
-            // Масштаб
             function setZoom(factor) {
+                savedZoom = factor;
                 dayPx = Math.round(32 * factor);
+                localStorage.setItem('gantt_zoom', factor);
                 renderAll();
             }
 
-            // Переключение видимости дополнительных колонок
             function toggleColumns() {
                 const panel = document.getElementById('leftPanel');
                 panel.classList.toggle('hide-extra');
             }
 
-            // Обработчики кнопок тулбара
             document.getElementById('addGroupBtn').addEventListener('click', addGroup);
             document.getElementById('addTaskBtn').addEventListener('click', showAddTaskModal);
             document.getElementById('manageStatusesBtn').addEventListener('click', manageStatuses);
@@ -824,16 +810,23 @@
             document.getElementById('zoom25').addEventListener('click', () => setZoom(0.25));
             document.getElementById('zoom50').addEventListener('click', () => setZoom(0.5));
             document.getElementById('zoom75').addEventListener('click', () => setZoom(0.75));
-            document.getElementById('zoom100').addEventListener('click', () => setZoom(1));
-            document.getElementById('zoom125').addEventListener('click', () => setZoom(1.25));
             document.getElementById('zoom150').addEventListener('click', () => setZoom(1.5));
+            document.getElementById('applyZoom').addEventListener('click', () => {
+                const val = parseInt(document.getElementById('customZoom').value);
+                if (!isNaN(val) && val >= 10 && val <= 200) {
+                    setZoom(val / 100);
+                    document.getElementById('customZoom').value = val;
+                }
+            });
+            document.getElementById('customZoom').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') document.getElementById('applyZoom').click();
+            });
+            document.getElementById('customZoom').value = Math.round(savedZoom * 100);
 
-            // Глобальные функции для модалок
             window.manageStatuses = manageStatuses;
             window.showTypeManager = showTypeManager;
             window.showAddTypeForm = showAddTypeForm;
 
-            // Старт
             load();
             renderAll();
         })();
