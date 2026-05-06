@@ -31,6 +31,7 @@
         .col-responsible { width:75px; justify-content:center; }
         .col-start, .col-end { width:75px; justify-content:center; }
         .col-drag { width:30px; justify-content:center; }
+        .col-copy { width:30px; justify-content:center; }
         .table-body { flex:1; overflow-y:auto; }
         .row { display:flex; align-items:stretch; border-bottom:1px solid #f0f1f3; height: var(--row-height); }
         .row.group { background:#f8f9fa; cursor:pointer; font-weight:600; }
@@ -63,7 +64,16 @@
         .gantt-row { position:relative; height: var(--row-height); border-bottom:1px solid #f0f1f3; white-space:nowrap; }
         .bar-segment { position:absolute; top:50%; transform:translateY(-50%); height:22px; background:var(--blue-bar); border-radius:5px; cursor:pointer; z-index:2; }
         .bar-segment.status-done { background:var(--green-bar); }
-        .marker { position:absolute; top:50%; transform:translate(-50%,-50%); cursor:pointer; z-index:5; border:2px solid #fff; }
+        /* Новые стили маркеров */
+        .marker-fill {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            height: 22px; border-radius: 3px; z-index: 4; cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.6);
+        }
+        .marker-range-line-new {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            height: 6px; z-index: 3; border-radius: 2px;
+        }
         .weekend-strip { position:absolute; top:0; bottom:0; width:32px; background:rgba(0,0,0,0.03); pointer-events:none; z-index:0; }
         .today-line { position:absolute; top:0; bottom:0; width:2px; background:#f59e0b; opacity:0.6; z-index:3; }
 
@@ -110,6 +120,7 @@
                     <div class="col-start">Начало</div>
                     <div class="col-end">Конец</div>
                     <div class="col-drag"></div>
+                    <div class="col-copy"></div>
                 </div>
                 <div class="table-body" id="tableBody"></div>
             </div></div>
@@ -224,7 +235,7 @@
             function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
             window.closeModal = closeModal;
 
-            
+         
             // ===================== RENDER =====================
             function renderAll() { renderProjectSelect(); renderTable(); renderGantt(); }
             function renderProjectSelect() {
@@ -245,6 +256,7 @@
                         <div class="col-responsible"></div>
                         <div class="col-start"></div><div class="col-end"></div>
                         <div class="col-drag"></div>
+                        <div class="col-copy"></div>
                     </div>`;
                     if (g.expanded) g.tasks.forEach((t, idx) => {
                         const statusOptions = state.customStatuses.map(s => `<option value="${s}" ${t.status===s?'selected':''}>${s}</option>`).join('');
@@ -256,6 +268,7 @@
                             <div class="col-start"><input type="text" class="date-input-field short-date" value="${formatDateShort(t.startDate)}" data-id="${t.id}" data-field="startDate" placeholder="ДД.ММ"></div>
                             <div class="col-end"><input type="text" class="date-input-field short-date" value="${formatDateShort(t.endDate)}" data-id="${t.id}" data-field="endDate" placeholder="ДД.ММ"></div>
                             <div class="col-drag"><span class="drag-handle">⋮⋮</span></div>
+                            <div class="col-copy"><button class="btn small copy-task-btn" data-task-id="${t.id}" title="Копировать задачу">📋</button></div>
                         </div>`;
                     });
                 });
@@ -266,7 +279,7 @@
             function attachTableEvents() {
                 document.querySelectorAll('.row.group').forEach(row => {
                     row.addEventListener('click', function(e) {
-                        if (e.target.tagName === 'INPUT' || e.target.closest('.drag-handle')) return;
+                        if (e.target.tagName === 'INPUT' || e.target.closest('.drag-handle') || e.target.closest('.copy-task-btn')) return;
                         toggleGroup(this.dataset.groupId);
                     });
                 });
@@ -284,6 +297,13 @@
                 document.querySelectorAll('.responsible-input').forEach(inp => inp.addEventListener('change', function() {
                     updateTaskResponsible(this.dataset.id, this.value);
                 }));
+                // Копирование задачи
+                document.querySelectorAll('.copy-task-btn').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        copyTask(this.dataset.taskId);
+                    });
+                });
 
                 let dragSrcId = null, dragSrcGroup = null, dragSrcIdx = null;
                 document.querySelectorAll('.row.task').forEach(row => {
@@ -327,12 +347,35 @@
                 save(); renderAll();
             }
 
+            function copyTask(taskId) {
+                const proj = getProject();
+                let sourceTask = null;
+                for (const g of proj.groups) {
+                    const t = g.tasks.find(t => t.id === taskId);
+                    if (t) { sourceTask = t; break; }
+                }
+                if (!sourceTask) return;
+                const newTask = JSON.parse(JSON.stringify(sourceTask));
+                newTask.id = genId();
+                newTask.name = newTask.name + ' (копия)';
+                newTask.markers.forEach(m => m.id = genId());
+                // Добавляем в ту же группу, что и исходная задача
+                for (const g of proj.groups) {
+                    if (g.tasks.some(t => t.id === taskId)) {
+                        g.tasks.push(newTask);
+                        break;
+                    }
+                }
+                save(); renderAll();
+            }
+
             function renderGantt() {
                 const proj = getProject();
                 const header = document.getElementById('timeHeader'), body = document.getElementById('ganttBody');
                 if (!proj || proj.groups.length===0) { header.innerHTML=''; body.innerHTML=''; return; }
                 let minD=null, maxD=null;
                 proj.groups.forEach(g=>g.tasks.forEach(t=>{
+                    if (!t.startDate || !t.endDate) return; // Пропускаем задачи без дат
                     const s=new Date(t.startDate), e=new Date(t.endDate);
                     if(!isNaN(s)){ if(!minD||s<minD) minD=s; if(!maxD||s>maxD) maxD=s; }
                     if(!isNaN(e)){ if(!minD||e<minD) minD=e; if(!maxD||e>maxD) maxD=e; }
@@ -358,6 +401,11 @@
                 proj.groups.forEach(g=>{
                     bodyHtml+=`<div class="gantt-row group" style="width:${totalWidth}px;"></div>`;
                     if(g.expanded) g.tasks.forEach(t=>{
+                        // Если даты не указаны — задачная строка без полосы
+                        if (!t.startDate || !t.endDate || isNaN(new Date(t.startDate)) || isNaN(new Date(t.endDate))) {
+                            bodyHtml += `<div class="gantt-row" style="width:${totalWidth}px;"></div>`;
+                            return;
+                        }
                         const intervals=getIntervals(t,proj);
                         if(!intervals.length) bodyHtml+=`<div class="gantt-row" style="width:${totalWidth}px;"></div>`;
                         else {
@@ -366,16 +414,20 @@
                                 const left=Math.round((seg.start-minD)/86400000)*dayPx, width=(Math.round((seg.end-seg.start)/86400000)+1)*dayPx;
                                 const done=t.status==='Завершено'?' status-done':'';
                                 segs+=`<div class="bar-segment${done}" style="left:${left}px;width:${width}px;" data-task-id="${t.id}">`;
+                                // Новые маркеры: заливка + линия
                                 t.markers.forEach(m=>{
                                     const ms=new Date(m.startDate), me=new Date(m.endDate||m.startDate);
                                     if(isNaN(ms)) return;
-                                    const sx=((ms-minD)/86400000*dayPx)-left+dayPx/2, ex=((me-minD)/86400000*dayPx)-left+dayPx/2;
-                                    const style=getMarkerStyle(m.type);
-                                    if(m.startDate===m.endDate) segs+=`<div class="marker" style="left:${sx}px; width:${style.size}px; height:${style.size}px; background:${style.color}; border-radius:${style.radius};" data-marker-id="${m.id}" data-task-id="${t.id}"></div>`;
-                                    else {
-                                        segs+=`<div style="position:absolute; left:${Math.min(sx,ex)-2}px; top:50%; transform:translateY(-50%); height:4px; width:${Math.abs(ex-sx)+4}px; background:${style.color}; opacity:0.7; z-index:1;"></div>`;
-                                        segs+=`<div class="marker" style="left:${sx}px; width:${style.size}px; height:${style.size}px; background:${style.color}; border-radius:${style.radius};" data-marker-id="${m.id}" data-task-id="${t.id}"></div>`;
-                                        segs+=`<div class="marker" style="left:${ex}px; width:${style.size}px; height:${style.size}px; background:${style.color}; border-radius:${style.radius};"></div>`;
+                                    const sx=((ms-minD)/86400000*dayPx)-left, ex=((me-minD)/86400000*dayPx)-left;
+                                    const color = (state.markerTypes[m.type] && state.markerTypes[m.type].color) || '#f59e0b';
+                                    if(m.startDate===m.endDate){
+                                        // Одиночный день – заливка
+                                        segs+=`<div class="marker-fill" style="left:${sx}px; width:${dayPx}px; background:${color};" data-marker-id="${m.id}" data-task-id="${t.id}"></div>`;
+                                    } else {
+                                        // Промежуток – заливка начального и конечного дня, линия между ними
+                                        segs+=`<div class="marker-fill" style="left:${sx}px; width:${dayPx}px; background:${color};" data-marker-id="${m.id}" data-task-id="${t.id}"></div>`;
+                                        segs+=`<div class="marker-fill" style="left:${ex}px; width:${dayPx}px; background:${color};" data-marker-id="${m.id}" data-task-id="${t.id}"></div>`;
+                                        segs+=`<div class="marker-range-line-new" style="left:${sx+dayPx/2}px; width:${ex-sx}px; background:${color}; opacity:0.7;"></div>`;
                                     }
                                 });
                                 segs+='</div>';
@@ -390,13 +442,13 @@
                 bodyEl.onscroll=()=>{ document.getElementById('timeHeader').scrollLeft=bodyEl.scrollLeft; document.getElementById('tableBody').scrollTop=bodyEl.scrollTop; };
                 document.getElementById('tableBody').onscroll=()=>{ bodyEl.scrollTop=document.getElementById('tableBody').scrollTop; };
                 bodyEl.onclick=e=>{
-                    const marker=e.target.closest('.marker');
+                    const marker=e.target.closest('.marker-fill') || e.target.closest('.marker-range-line-new');
                     if(marker){ e.stopPropagation(); handleMarkerClick(marker.dataset.taskId, marker.dataset.markerId); return; }
                     const seg=e.target.closest('.bar-segment');
                     if(seg) handleBarClick(seg.dataset.taskId, e);
                 };
                 bodyEl.onmouseover=function(e){
-                    const marker=e.target.closest('.marker');
+                    const marker=e.target.closest('.marker-fill') || e.target.closest('.marker-range-line-new');
                     if(marker){
                         const taskId=marker.dataset.taskId;
                         const proj=getProject();
@@ -412,22 +464,10 @@
                     }
                     hideTooltip();
                 };
-                bodyEl.onmouseout=function(e){ if(!e.target.closest('.marker')) hideTooltip(); };
+                bodyEl.onmouseout=function(e){ if(!e.target.closest('.marker-fill') && !e.target.closest('.marker-range-line-new')) hideTooltip(); };
             }
 
-            function getMarkerStyle(type) {
-                const def = state.markerTypes[type] || state.markerTypes['control'];
-                const scale = Math.max(0.4, dayPx / 32);
-                let baseSize = 10;
-                if (def.shape === 'circle') baseSize = 12;
-                else if (def.shape === 'square') baseSize = 12;
-                const size = Math.round(baseSize * scale);
-                let radius = '2px';
-                if (def.shape === 'circle') radius = '50%';
-                else if (def.shape === 'diamond') radius = '2px';
-                else radius = '2px';
-                return { color: def.color, shape: def.shape, radius, size };
-            }
+            function getMarkerStyle(type) { /* уже не используется для отрисовки, оставлена для обратной совместимости */ }
 
             function openMonthCalendar(monthKey) {
                 const proj = getProject();
@@ -469,7 +509,7 @@
                 if (task) { const m = task.markers.find(m=>m.id===markerId); if (m) showMarkerEditModal(taskId, m); }
             }
 
-            // Модалки
+            // Модалки (как в предыдущей версии)
             function showMarkerModal(taskId, startDate) {
                 const typesHtml = Object.entries(state.markerTypes).map(([t,o]) => `<option value="${t}">${o.label}</option>`).join('');
                 document.getElementById('modalContainer').innerHTML = `
@@ -732,5 +772,3 @@
     </script>
 </body>
 </html>
-
-            
