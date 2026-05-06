@@ -91,6 +91,7 @@
             <button class="btn accent" id="addGroupBtn">+ Группа</button>
             <button class="btn" id="addTaskBtn">+ Задача</button>
             <span style="display:flex;align-items:center;gap:4px;margin-left:auto;margin-right:8px;">
+                <button class="btn small" id="zoom25">25%</button>
                 <button class="btn small" id="zoom50">50%</button>
                 <button class="btn small" id="zoom75">75%</button>
                 <button class="btn small" id="zoom100">100%</button>
@@ -335,7 +336,7 @@
                 header.innerHTML=monthsHtml;
                 document.querySelectorAll('.calendar-icon').forEach(icon=>icon.addEventListener('click', e=>{ e.stopPropagation(); openMonthCalendar(icon.parentElement.dataset.monthKey); }));
                 let bodyHtml=`<div style="position:relative; width:${totalWidth}px; min-width:100%;">`;
-                for(let d=0;d<totalDays;d++){ const date=new Date(minD); date.setDate(date.getDate()+d); if(isDayOff(date,proj)) bodyHtml+=`<div class="weekend-strip" style="left:${d*32}px; width:32px;"></div>`; }
+                for(let d=0;d<totalDays;d++){ const date=new Date(minD); date.setDate(date.getDate()+d); if(isDayOff(date,proj)) bodyHtml+=`<div class="weekend-strip" style="left:${d*dayPx}px; width:${dayPx}px;"></div>`; }
                 const today=new Date(); if(today>=minD && today<=maxD) bodyHtml+=`<div class="today-line" style="left:${Math.ceil((today-minD)/86400000)*dayPx}px;"></div>`;
                 proj.groups.forEach(g=>{
                     bodyHtml+=`<div class="gantt-row group" style="width:${totalWidth}px;"></div>`;
@@ -686,6 +687,7 @@
             document.getElementById('newBtn').addEventListener('click', newProject);
             document.getElementById('deleteBtn').addEventListener('click', deleteProject);
 
+            document.getElementById('zoom25').addEventListener('click', () => setZoom(0.25));
             document.getElementById('zoom50').addEventListener('click', () => setZoom(0.5));
             document.getElementById('zoom75').addEventListener('click', () => setZoom(0.75));
             document.getElementById('zoom100').addEventListener('click', () => setZoom(1));
