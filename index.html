@@ -3,37 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Гант – финальная версия</title>
+    <title>Гант – компактная версия</title>
     <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
     <style>
         :root {
             --blue: #2563eb; --blue-bar: #3b82f6; --green-bar: #10b981;
-            --row-height: 36px; --time-header-height: 48px; --border: #e0e0e0;
+            --row-height: 28px;           /* уменьшено с 36px */
+            --time-header-height: 40px;   /* уменьшено с 48px */
+            --border: #e0e0e0;
             --control: #f59e0b; --delivery: #ef4444; --feedback: #fbbf24;
         }
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #e8eaed; display: flex; justify-content: center; min-height: 100vh; padding: 16px; overflow-x: auto; }
         #app { width: 100%; max-width: 1440px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); display: flex; flex-direction: column; height: 92vh; min-width: 1024px; }
-        .toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: #fafbfc; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-        .toolbar .brand { font-weight:700; font-size:17px; margin-right:10px; }
-        .btn { padding: 5px 10px; border-radius:5px; border:1px solid #d0d5dd; background:#fff; cursor:pointer; font-size:12px; font-weight:500; white-space:nowrap; }
+        .toolbar { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: #fafbfc; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+        .toolbar .brand { font-weight:700; font-size:15px; margin-right:10px; }
+        .btn { padding: 4px 8px; border-radius:4px; border:1px solid #d0d5dd; background:#fff; cursor:pointer; font-size:11px; font-weight:500; white-space:nowrap; }
         .btn:hover { background:#f5f6f8; }
         .btn.accent { background:var(--blue); color:#fff; border-color:var(--blue); }
         .btn.danger { color:#dc2626; border-color:#fca5a5; background:#fef2f2; }
-        select.project-switcher { padding:5px 8px; border-radius:5px; border:1px solid #d0d5dd; font-size:12px; background:#fff; max-width:180px; }
+        select.project-switcher { padding:4px 6px; border-radius:4px; border:1px solid #d0d5dd; font-size:11px; background:#fff; max-width:180px; }
 
         .main-container { display:flex; flex:1; overflow:hidden; }
         .left-panel { width: 520px; min-width: 420px; border-right:2px solid #e5e7eb; display:flex; flex-direction:column; background:#fcfcfd; transition: width 0.2s; }
         .left-panel.hide-extra { width: 340px; }
         .table-section { flex:1; display:flex; flex-direction:column; overflow:hidden; }
-        .table-header { display:flex; background:#f1f3f4; font-weight:600; font-size:10px; text-transform:uppercase; color:#5f6368; border-bottom:2px solid #d0d5dd; height: var(--time-header-height); align-items:flex-end; }
-        .table-header>div { padding:4px 6px; border-right:1px solid #e0e0e0; display:flex; align-items:center; height:100%; }
-        .col-status { width:130px; justify-content:center; position:relative; }
-        .col-status .add-status-btn { position:absolute; right:2px; top:2px; background:none; border:none; font-size:12px; cursor:pointer; color:#888; }
+        .table-header { display:flex; background:#f1f3f4; font-weight:600; font-size:9px; text-transform:uppercase; color:#5f6368; border-bottom:2px solid #d0d5dd; height: var(--time-header-height); align-items:flex-end; }
+        .table-header>div { padding:2px 4px; border-right:1px solid #e0e0e0; display:flex; align-items:center; height:100%; }
+        .col-status { width:120px; justify-content:center; position:relative; }
+        .col-status .add-status-btn { position:absolute; right:2px; top:2px; background:none; border:none; font-size:10px; cursor:pointer; color:#888; }
         .col-name { flex:1.5; }
-        .col-responsible, .col-start, .col-end { width:75px; justify-content:center; }
-        .col-drag { width:30px; justify-content:center; }
-        .col-copy { width:30px; justify-content:center; }
+        .col-responsible, .col-start, .col-end { width:65px; justify-content:center; }
+        .col-drag { width:24px; justify-content:center; }
+        .col-copy { width:24px; justify-content:center; }
 
         .left-panel.hide-extra .col-responsible,
         .left-panel.hide-extra .col-start,
@@ -45,18 +47,18 @@
         .row.group { background:#f8f9fa; cursor:pointer; font-weight:600; }
         .row.task { background:#fff; transition: background 0.2s; }
         .row.task.status-done-bg { background: #e6f7ee; }
-        .row>div { padding:4px 6px; display:flex; align-items:center; border-right:1px solid #f3f4f6; font-size:13px; }
-        .drag-handle { cursor: grab; color: #aaa; font-size: 14px; }
-        .expand-icon { margin-right:4px; font-size:10px; transition:0.2s; }
+        .row>div { padding:2px 4px; display:flex; align-items:center; border-right:1px solid #f3f4f6; font-size:12px; }
+        .drag-handle { cursor: grab; color: #aaa; font-size: 12px; }
+        .expand-icon { margin-right:3px; font-size:9px; transition:0.2s; }
         .row.group.collapsed .expand-icon { transform: rotate(-90deg); }
-        input.name-input { border:1px solid transparent; background:transparent; padding:4px 6px; border-radius:4px; font-size:13px; width:100%; }
-        .date-input-field { border:1px solid transparent; background:transparent; padding:4px 6px; border-radius:4px; font-size:12px; font-family: monospace; width:65px; text-align:center; }
+        input.name-input { border:1px solid transparent; background:transparent; padding:2px 4px; border-radius:3px; font-size:12px; width:100%; }
+        .date-input-field { border:1px solid transparent; background:transparent; padding:2px 4px; border-radius:3px; font-size:11px; font-family: monospace; width:60px; text-align:center; }
         .status-select {
-            border:1px solid #d1d5db; border-radius:18px; padding:3px 24px 3px 8px;
-            font-size:10px; font-weight:600; text-transform:uppercase; background:#f3f4f6; width:110px; text-align:center;
+            border:1px solid #d1d5db; border-radius:14px; padding:2px 18px 2px 6px;
+            font-size:9px; font-weight:600; text-transform:uppercase; background:#f3f4f6; width:100px; text-align:center;
             appearance:none;
             background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6"><path fill="%23666" d="M0 0l5 6 5-6z"/></svg>');
-            background-repeat:no-repeat; background-position: right 6px center;
+            background-repeat:no-repeat; background-position: right 4px center;
         }
 
         .gantt-panel { flex:1; display:flex; flex-direction:column; overflow:hidden; }
@@ -64,22 +66,22 @@
         .gantt-time-header { background:#f1f3f4; border-bottom:2px solid #d0d5dd; white-space:nowrap; overflow:hidden; height: var(--time-header-height); }
         .time-month-row { display:flex; }
         .time-day-row { display:flex; }
-        .month-label { display:flex; align-items:center; justify-content:center; font-weight:700; font-size:11px; color:#444; border-right:1px solid #d0d5dd; padding:0 4px; background:#e8eaef; height:24px; flex-shrink:0; position: relative; }
-        .month-label .calendar-icon { margin-left:4px; font-size:13px; cursor:pointer; opacity:0.5; }
-        .day-cell { display:inline-flex; align-items:center; justify-content:center; font-size:9px; color:#777; border-right:1px solid #eee; min-width:32px; height:24px; flex-shrink:0; }
+        .month-label { display:flex; align-items:center; justify-content:center; font-weight:700; font-size:10px; color:#444; border-right:1px solid #d0d5dd; padding:0 3px; background:#e8eaef; height:20px; flex-shrink:0; position: relative; }
+        .month-label .calendar-icon { margin-left:2px; font-size:11px; cursor:pointer; opacity:0.5; }
+        .day-cell { display:inline-flex; align-items:center; justify-content:center; font-size:8px; color:#777; border-right:1px solid #eee; min-width:32px; height:20px; flex-shrink:0; }
         .gantt-body { flex:1; overflow:auto; position:relative; -webkit-overflow-scrolling: touch; }
         .gantt-row { position:relative; height: var(--row-height); border-bottom:1px solid #f0f1f3; white-space:nowrap; }
         .gantt-row.group { background:#f8f9fa; z-index:1; position:relative; }
-        .bar-segment { position:absolute; top:50%; transform:translateY(-50%); height:20px; background:var(--blue-bar); border-radius:4px; cursor:pointer; z-index:2; }
+        .bar-segment { position:absolute; top:50%; transform:translateY(-50%); height:16px; background:var(--blue-bar); border-radius:3px; cursor:pointer; z-index:2; }
         .bar-segment.status-done { background:var(--green-bar); }
 
         .marker {
             position:absolute; top:50%; transform:translate(-50%,-50%);
             cursor:pointer; z-index:5; border:2px solid #fff; box-sizing: content-box;
         }
-        .marker.control { width:10px; height:10px; background: var(--control); border-radius: 2px; }
-        .marker.delivery { width:12px; height:12px; background: var(--delivery); border-radius: 50%; }
-        .marker.feedback { width:12px; height:12px; background: var(--feedback); border-radius: 50%; }
+        .marker.control { width:8px; height:8px; background: var(--control); border-radius: 2px; }
+        .marker.delivery { width:10px; height:10px; background: var(--delivery); border-radius: 50%; }
+        .marker.feedback { width:10px; height:10px; background: var(--feedback); border-radius: 50%; }
 
         .grid-line-horiz { position: absolute; left: 0; right: 0; height: 1px; background: rgba(0,0,0,0.05); pointer-events: none; z-index: 0; }
         .grid-line-vert { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,0.05); pointer-events: none; z-index: 0; }
@@ -88,15 +90,15 @@
         .today-line { position:absolute; top:0; bottom:0; width:2px; background:#f59e0b; opacity:0.6; z-index:3; }
 
         .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.35); display:flex; align-items:center; justify-content:center; z-index:100; }
-        .modal { background:#fff; border-radius:12px; padding:24px 24px 20px; box-shadow:0 8px 30px rgba(0,0,0,0.2); min-width:360px; max-width:500px; }
-        .modal h3 { margin-bottom:16px; font-size:16px; }
-        .modal label { display:block; font-size:12px; font-weight:600; color:#333; margin-bottom:6px; }
-        .modal input, .modal select, .modal textarea { width:100%; padding:10px 12px; border:1px solid #d0d5dd; border-radius:6px; font-size:13px; margin-bottom:14px; font-family:inherit; }
-        .modal .btn-row { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; }
+        .modal { background:#fff; border-radius:12px; padding:20px 20px 16px; box-shadow:0 8px 30px rgba(0,0,0,0.2); min-width:320px; max-width:480px; }
+        .modal h3 { margin-bottom:12px; font-size:15px; }
+        .modal label { display:block; font-size:11px; font-weight:600; color:#333; margin-bottom:4px; }
+        .modal input, .modal select, .modal textarea { width:100%; padding:8px 10px; border:1px solid #d0d5dd; border-radius:5px; font-size:12px; margin-bottom:10px; font-family:inherit; }
+        .modal .btn-row { display:flex; gap:6px; justify-content:flex-end; margin-top:6px; }
 
         .tooltip {
-            position: fixed; background: #1f2937; color: #fff; padding: 5px 8px;
-            border-radius: 6px; font-size: 11px; pointer-events: none; z-index: 999;
+            position: fixed; background: #1f2937; color: #fff; padding: 4px 6px;
+            border-radius: 4px; font-size: 10px; pointer-events: none; z-index: 999;
             opacity: 0; transition: opacity 0.1s; max-width: 300px;
         }
     </style>
@@ -116,7 +118,7 @@
                 <button class="btn small" id="zoom25">25%</button>
                 <button class="btn small" id="zoom50">50%</button>
                 <button class="btn small" id="zoom75">75%</button>
-                <input type="number" id="customZoom" value="100" style="width:55px; height:28px; text-align:center; font-size:12px;" min="10" max="200" step="5">
+                <input type="number" id="customZoom" value="100" style="width:50px; height:24px; text-align:center; font-size:11px;" min="10" max="200" step="5">
                 <button class="btn small" id="applyZoom">Применить</button>
                 <button class="btn small" id="zoom150">150%</button>
             </span>
@@ -157,6 +159,9 @@
                 customStatuses: ['Не начато','В работе','На проверке','Завершено','Просрочено'],
                 markerTypes: {}
             };
+
+            // константа высоты строки, синхронизированная с CSS
+            const ROW_HEIGHT = 28;
 
             function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
             function load() {
@@ -251,6 +256,7 @@
             function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
             window.closeModal = closeModal;
 
+             
             function renderAll() { renderProjectSelect(); renderTable(); renderGantt(); }
             function renderProjectSelect() {
                 const sel = document.getElementById('projectSelect');
@@ -278,11 +284,11 @@
                         html += `<div class="row task${doneClass}" data-task-id="${t.id}" data-group-id="${g.id}" data-idx="${idx}" draggable="true">
                             <div class="col-status"><select class="status-select">${statusOptions}</select></div>
                             <div class="col-name"><input class="name-input" value="${escapeHtml(t.name)}" data-id="${t.id}"></div>
-                            <div class="col-responsible"><input class="responsible-input" value="${escapeHtml(t.responsible||'')}" data-id="${t.id}" style="width:60px;border:1px solid transparent;background:transparent;padding:4px 6px;border-radius:4px;font-size:13px;" placeholder="Имя"></div>
+                            <div class="col-responsible"><input class="responsible-input" value="${escapeHtml(t.responsible||'')}" data-id="${t.id}" style="width:60px;border:1px solid transparent;background:transparent;padding:2px 4px;border-radius:3px;font-size:12px;" placeholder="Имя"></div>
                             <div class="col-start"><input type="text" class="date-input-field short-date" value="${t.startDate ? formatDateShort(t.startDate) : ''}" data-id="${t.id}" data-field="startDate" placeholder="ДД.ММ"></div>
                             <div class="col-end"><input type="text" class="date-input-field short-date" value="${t.endDate ? formatDateShort(t.endDate) : ''}" data-id="${t.id}" data-field="endDate" placeholder="ДД.ММ"></div>
                             <div class="col-drag"><span class="drag-handle">⋮⋮</span></div>
-                            <div class="col-copy"><button class="btn small copy-task-btn" data-task-id="${t.id}" title="Копировать задачу">📋</button></div>
+                            <div class="col-copy"><button class="btn small copy-task-btn" data-task-id="${t.id}" title="Копировать задачу" style="font-size:10px;padding:2px 4px;">📋</button></div>
                         </div>`;
                     });
                 });
@@ -422,14 +428,14 @@
                     if(g.expanded) g.tasks.forEach(t=>{
                         if (!t.startDate || !t.endDate) {
                             bodyHtml += `<div class="gantt-row" style="width:${totalWidth}px;"></div>`;
-                            bodyHtml+=`<div class="grid-line-horiz" style="top:${rowIndex*36}px; width:${totalWidth}px;"></div>`;
+                            bodyHtml+=`<div class="grid-line-horiz" style="top:${rowIndex*ROW_HEIGHT}px; width:${totalWidth}px;"></div>`;
                             rowIndex++;
                             return;
                         }
                         const intervals=getIntervals(t,proj);
                         if(!intervals.length) {
                             bodyHtml+=`<div class="gantt-row" style="width:${totalWidth}px;"></div>`;
-                            bodyHtml+=`<div class="grid-line-horiz" style="top:${rowIndex*36}px; width:${totalWidth}px;"></div>`;
+                            bodyHtml+=`<div class="grid-line-horiz" style="top:${rowIndex*ROW_HEIGHT}px; width:${totalWidth}px;"></div>`;
                             rowIndex++;
                         }
                         else {
@@ -450,7 +456,7 @@
                                         const size = style.size;
                                         const lineLeft = sx + size/2;
                                         const lineWidth = (ex - size/2) - lineLeft;
-                                        segs+=`<div style="position:absolute; left:${lineLeft}px; top:50%; transform:translateY(-50%); height:4px; width:${lineWidth}px; background:${style.color}; opacity:0.85; z-index:4; border-radius:2px;" data-marker-id="${m.id}" data-task-id="${t.id}"></div>`;
+                                        segs+=`<div style="position:absolute; left:${lineLeft}px; top:50%; transform:translateY(-50%); height:3px; width:${lineWidth}px; background:${style.color}; opacity:0.85; z-index:4; border-radius:2px;" data-marker-id="${m.id}" data-task-id="${t.id}"></div>`;
                                         segs+=`<div class="marker ${m.type||'control'}" style="left:${sx}px; width:${style.size}px; height:${style.size}px; background:${style.color}; border-radius:${style.radius};" data-marker-id="${m.id}" data-task-id="${t.id}"></div>`;
                                         segs+=`<div class="marker ${m.type||'control'}" style="left:${ex}px; width:${style.size}px; height:${style.size}px; background:${style.color}; border-radius:${style.radius};"></div>`;
                                     }
@@ -458,7 +464,7 @@
                                 segs+='</div>';
                             });
                             bodyHtml+=`<div class="gantt-row" style="width:${totalWidth}px;">${segs}</div>`;
-                            bodyHtml+=`<div class="grid-line-horiz" style="top:${rowIndex*36}px; width:${totalWidth}px;"></div>`;
+                            bodyHtml+=`<div class="grid-line-horiz" style="top:${rowIndex*ROW_HEIGHT}px; width:${totalWidth}px;"></div>`;
                             rowIndex++;
                         }
                     });
@@ -497,10 +503,10 @@
             function getMarkerStyle(type) {
                 const def = state.markerTypes[type] || state.markerTypes.control;
                 const scale = Math.max(0.3, dayPx / 32);
-                let baseSize = 8;
-                if (def.shape === 'circle') baseSize = 10;
-                else if (def.shape === 'diamond') baseSize = 7;
-                const size = Math.max(5, Math.round(baseSize * scale));
+                let baseSize = 7;
+                if (def.shape === 'circle') baseSize = 9;
+                else if (def.shape === 'diamond') baseSize = 6;
+                const size = Math.max(4, Math.round(baseSize * scale));
                 let radius = '2px';
                 if (def.shape === 'circle') radius = '50%';
                 else if (def.shape === 'diamond') radius = '2px';
