@@ -11,8 +11,8 @@
             --control: #f59e0b; --delivery: #ef4444; --feedback: #fbbf24;
         }
         * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #e8eaed; display: flex; justify-content: center; min-height: 100vh; padding: 16px; }
-        #app { width: 100%; max-width: 1440px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); display: flex; flex-direction: column; height: 92vh; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #e8eaed; display: flex; justify-content: center; min-height: 100vh; padding: 16px; overflow-x: auto; }
+        #app { width: 100%; max-width: 1440px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); display: flex; flex-direction: column; height: 92vh; min-width: 1024px; }
         .toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: #fafbfc; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
         .toolbar .brand { font-weight:700; font-size:17px; margin-right:10px; }
         .btn { padding: 5px 10px; border-radius:5px; border:1px solid #d0d5dd; background:#fff; cursor:pointer; font-size:12px; font-weight:500; white-space:nowrap; }
@@ -66,7 +66,7 @@
         .month-label { display:flex; align-items:center; justify-content:center; font-weight:700; font-size:11px; color:#444; border-right:1px solid #d0d5dd; padding:0 4px; background:#e8eaef; height:24px; flex-shrink:0; position: relative; }
         .month-label .calendar-icon { margin-left:4px; font-size:13px; cursor:pointer; opacity:0.5; }
         .day-cell { display:inline-flex; align-items:center; justify-content:center; font-size:9px; color:#777; border-right:1px solid #eee; min-width:32px; height:24px; flex-shrink:0; }
-        .gantt-body { flex:1; overflow:auto; position:relative; }
+        .gantt-body { flex:1; overflow:auto; position:relative; -webkit-overflow-scrolling: touch; }
         .gantt-row { position:relative; height: var(--row-height); border-bottom:1px solid #f0f1f3; white-space:nowrap; }
         .gantt-row.group { background:#f8f9fa; z-index:1; position:relative; }
         .bar-segment { position:absolute; top:50%; transform:translateY(-50%); height:20px; background:var(--blue-bar); border-radius:4px; cursor:pointer; z-index:2; }
