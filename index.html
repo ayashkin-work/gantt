@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Гант – конструктор + поделиться + масштаб + ответственный</title>
+    <title>Гант – финальная версия</title>
     <style>
         :root {
             --blue: #2563eb; --blue-bar: #3b82f6; --green-bar: #10b981;
@@ -21,15 +21,15 @@
         select.project-switcher { padding:5px 8px; border-radius:5px; border:1px solid #d0d5dd; font-size:12px; background:#fff; max-width:180px; }
 
         .main-container { display:flex; flex:1; overflow:hidden; }
-        .left-panel { width: 460px; min-width: 380px; border-right:2px solid #e5e7eb; display:flex; flex-direction:column; background:#fcfcfd; }
+        .left-panel { width: 520px; min-width: 420px; border-right:2px solid #e5e7eb; display:flex; flex-direction:column; background:#fcfcfd; }
         .table-section { flex:1; display:flex; flex-direction:column; overflow:hidden; }
         .table-header { display:flex; background:#f1f3f4; font-weight:600; font-size:10px; text-transform:uppercase; color:#5f6368; border-bottom:2px solid #d0d5dd; height: var(--time-header-height); align-items:flex-end; }
         .table-header>div { padding:6px 8px; border-right:1px solid #e0e0e0; display:flex; align-items:center; height:100%; }
         .col-status { width:130px; justify-content:center; position:relative; }
         .col-status .add-status-btn { position:absolute; right:2px; top:2px; background:none; border:none; font-size:12px; cursor:pointer; color:#888; }
-        .col-name { flex:1; }
-        .col-responsible { width:70px; justify-content:center; }
-        .col-start, .col-end { width:90px; justify-content:center; }
+        .col-name { flex:1.5; }
+        .col-responsible { width:75px; justify-content:center; }
+        .col-start, .col-end { width:75px; justify-content:center; }
         .col-drag { width:30px; justify-content:center; }
         .table-body { flex:1; overflow-y:auto; }
         .row { display:flex; align-items:stretch; border-bottom:1px solid #f0f1f3; height: var(--row-height); }
@@ -41,7 +41,8 @@
         .expand-icon { margin-right:4px; font-size:10px; transition:0.2s; }
         .row.group.collapsed .expand-icon { transform: rotate(-90deg); }
         input.name-input { border:1px solid transparent; background:transparent; padding:4px 6px; border-radius:4px; font-size:13px; width:100%; }
-        .date-input-field { border:1px solid transparent; background:transparent; padding:4px 6px; border-radius:4px; font-size:11px; font-family: monospace; width:85px; text-align:center; }
+        .date-input-field { border:1px solid transparent; background:transparent; padding:4px 6px; border-radius:4px; font-size:12px; font-family: monospace; width:65px; text-align:center; }
+        .date-input-field.short-date { width:65px; }
         .status-select {
             border:1px solid #d1d5db; border-radius:18px; padding:4px 24px 4px 8px;
             font-size:10px; font-weight:600; text-transform:uppercase; background:#f3f4f6; width:110px; text-align:center;
@@ -125,7 +126,7 @@
         (function() {
             const STORAGE_KEY = 'gantt_v9_shared';
             const DAY_PX = 32;
-            let dayPx = 32; // текущий масштаб
+            let dayPx = 32;
             let state = {
                 projects: [], activeProjectId: null,
                 customStatuses: ['Не начато','В работе','На проверке','Завершено','Просрочено'],
@@ -177,9 +178,25 @@
                 })));
             }
 
-            // Хелперы...
             function genId() { return Date.now() + '_' + Math.random().toString(36).slice(2,6); }
             function toLocalISO(date) { const d=new Date(date); return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2); }
+            function formatDateShort(iso) {
+                if (!iso) return '';
+                const d = new Date(iso);
+                return ('0'+d.getDate()).slice(-2) + '.' + ('0'+(d.getMonth()+1)).slice(-2);
+            }
+            function parseDateShort(str) {
+                const parts = str.split('.');
+                if (parts.length >= 2) {
+                    const day = parseInt(parts[0]), month = parseInt(parts[1]);
+                    if (day && month) {
+                        const now = new Date();
+                        const d = new Date(now.getFullYear(), month-1, day);
+                        if (d.getMonth() === month-1) return d;
+                    }
+                }
+                return null;
+            }
             function isWeekend(date) { const d = new Date(date); return d.getDay()===0 || d.getDay()===6; }
             function getProject() { return state.projects.find(p => p.id === state.activeProjectId) || null; }
             function isDayOff(date, project) {
@@ -235,9 +252,9 @@
                         html += `<div class="row task${doneClass}" data-task-id="${t.id}" data-group-id="${g.id}" data-idx="${idx}" draggable="true">
                             <div class="col-status"><select class="status-select">${statusOptions}</select></div>
                             <div class="col-name"><input class="name-input" value="${escapeHtml(t.name)}" data-id="${t.id}"></div>
-                            <div class="col-responsible"><input class="responsible-input" value="${escapeHtml(t.responsible||'')}" data-id="${t.id}" style="width:60px;border:1px solid transparent;background:transparent;padding:4px 6px;border-radius:4px;font-size:13px;"></div>
-                            <div class="col-start"><input type="date" class="date-input-field" value="${t.startDate}" data-id="${t.id}" data-field="startDate"></div>
-                            <div class="col-end"><input type="date" class="date-input-field" value="${t.endDate}" data-id="${t.id}" data-field="endDate"></div>
+                            <div class="col-responsible"><input class="responsible-input" value="${escapeHtml(t.responsible||'')}" data-id="${t.id}" style="width:60px;border:1px solid transparent;background:transparent;padding:4px 6px;border-radius:4px;font-size:13px;" placeholder="Имя"></div>
+                            <div class="col-start"><input type="text" class="date-input-field short-date" value="${formatDateShort(t.startDate)}" data-id="${t.id}" data-field="startDate" placeholder="ДД.ММ"></div>
+                            <div class="col-end"><input type="text" class="date-input-field short-date" value="${formatDateShort(t.endDate)}" data-id="${t.id}" data-field="endDate" placeholder="ДД.ММ"></div>
                             <div class="col-drag"><span class="drag-handle">⋮⋮</span></div>
                         </div>`;
                     });
@@ -352,7 +369,7 @@
                                 t.markers.forEach(m=>{
                                     const ms=new Date(m.startDate), me=new Date(m.endDate||m.startDate);
                                     if(isNaN(ms)) return;
-                                    const sx=((ms-minD)/86400000*dayPx)-left+16, ex=((me-minD)/86400000*dayPx)-left+16;
+                                    const sx=((ms-minD)/86400000*dayPx)-left+dayPx/2, ex=((me-minD)/86400000*dayPx)-left+dayPx/2;
                                     const style=getMarkerStyle(m.type);
                                     if(m.startDate===m.endDate) segs+=`<div class="marker" style="left:${sx}px; width:${style.size}px; height:${style.size}px; background:${style.color}; border-radius:${style.radius};" data-marker-id="${m.id}" data-task-id="${t.id}"></div>`;
                                     else {
@@ -388,7 +405,7 @@
                             const m=task.markers.find(m=>m.id===marker.dataset.markerId);
                             if(m){
                                 const label=state.markerTypes[m.type]?.label||m.type;
-                                showTooltip(e.clientX,e.clientY,`${label}: ${m.comment||''} (${toLocalISO(m.startDate)}${m.startDate!==m.endDate?'-'+toLocalISO(m.endDate):''})`);
+                                showTooltip(e.clientX,e.clientY,`${label}: ${m.comment||''} (${formatDateShort(m.startDate)}${m.startDate!==m.endDate?'-'+formatDateShort(m.endDate):''})`);
                                 return;
                             }
                         }
@@ -400,11 +417,16 @@
 
             function getMarkerStyle(type) {
                 const def = state.markerTypes[type] || state.markerTypes['control'];
-                let radius='2px', size=10;
-                if(def.shape==='circle'){ radius='50%'; size=12; }
-                else if(def.shape==='diamond'){ radius='2px'; size=10; }
-                else { radius='2px'; size=12; }
-                return { color:def.color, shape:def.shape, radius, size };
+                const scale = Math.max(0.4, dayPx / 32);
+                let baseSize = 10;
+                if (def.shape === 'circle') baseSize = 12;
+                else if (def.shape === 'square') baseSize = 12;
+                const size = Math.round(baseSize * scale);
+                let radius = '2px';
+                if (def.shape === 'circle') radius = '50%';
+                else if (def.shape === 'diamond') radius = '2px';
+                else radius = '2px';
+                return { color: def.color, shape: def.shape, radius, size };
             }
 
             function openMonthCalendar(monthKey) {
@@ -556,7 +578,6 @@
                 };
             }
 
-            // CRUD маркеров и полей
             function addMarker(taskId, s, e, type, comment) {
                 const proj = getProject(); if (!proj) return;
                 for (const g of proj.groups) { const task = g.tasks.find(t=>t.id===taskId); if(task){ task.markers.push({id:genId(), startDate:s, endDate:e, type, comment}); save(); renderAll(); return; } }
@@ -573,7 +594,14 @@
             function updateGroupTitle(id, val) { const proj=getProject(); const g=proj.groups.find(g=>g.id===id); if(g){g.title=val; save();} }
             function updateTaskName(id, val) { const proj=getProject(); const t=proj.groups.flatMap(g=>g.tasks).find(t=>t.id===id); if(t){t.name=val; save();} }
             function updateTaskStatus(id, val) { const proj=getProject(); const t=proj.groups.flatMap(g=>g.tasks).find(t=>t.id===id); if(t){t.status=val; save(); renderAll();} }
-            function updateTaskDate(id, field, val) { if(!val) return; const proj=getProject(); for(const g of proj.groups){ const t=g.tasks.find(t=>t.id===id); if(t){t[field]=val; save(); renderAll(); return;} } }
+            function updateTaskDate(id, field, val) {
+                if (!val) return;
+                const parsed = parseDateShort(val);
+                if (!parsed) { alert('Введите дату как ДД.ММ'); renderAll(); return; }
+                const iso = toLocalISO(parsed);
+                const proj = getProject();
+                for (const g of proj.groups) { const t = g.tasks.find(t => t.id === id); if (t) { t[field] = iso; save(); renderAll(); return; } }
+            }
             function updateTaskResponsible(id, val) {
                 const proj = getProject();
                 const t = proj.groups.flatMap(g=>g.tasks).find(t=>t.id===id);
@@ -635,7 +663,7 @@
             }
             function hideTooltip() { document.getElementById('tooltip').style.opacity = '0'; }
 
-            // Поделиться (исправленная версия)
+            // Поделиться
             function shareProject() {
                 const proj = getProject(); if (!proj) { alert('Нет активного проекта'); return; }
                 const data = JSON.stringify(proj);
@@ -662,9 +690,7 @@
                             window.location.hash = '';
                             setTimeout(() => window.addEventListener('hashchange', importFromHash), 100);
                         }
-                    } catch(e) {
-                        alert('Некорректная ссылка');
-                    }
+                    } catch(e) { alert('Некорректная ссылка'); }
                 }
             }
             window.addEventListener('hashchange', importFromHash);
@@ -706,3 +732,5 @@
     </script>
 </body>
 </html>
+
+            
