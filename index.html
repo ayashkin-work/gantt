@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Гант – финальная версия</title>
+    <title>Гант – конструктор + поделиться + масштаб + ответственный</title>
     <style>
         :root {
             --blue: #2563eb; --blue-bar: #3b82f6; --green-bar: #10b981;
@@ -28,9 +28,9 @@
         .col-status { width:130px; justify-content:center; position:relative; }
         .col-status .add-status-btn { position:absolute; right:2px; top:2px; background:none; border:none; font-size:12px; cursor:pointer; color:#888; }
         .col-name { flex:1; }
+        .col-responsible { width:70px; justify-content:center; }
         .col-start, .col-end { width:90px; justify-content:center; }
         .col-drag { width:30px; justify-content:center; }
-        .col-responsible { width:70px; justify-content:center; }
         .table-body { flex:1; overflow-y:auto; }
         .row { display:flex; align-items:stretch; border-bottom:1px solid #f0f1f3; height: var(--row-height); }
         .row.group { background:#f8f9fa; cursor:pointer; font-weight:600; }
@@ -90,14 +90,24 @@
             <button class="btn small danger" id="deleteBtn">🗑</button>
             <button class="btn accent" id="addGroupBtn">+ Группа</button>
             <button class="btn" id="addTaskBtn">+ Задача</button>
-            <span style="flex:1;"></span>
+            <span style="display:flex;align-items:center;gap:4px;margin-left:auto;margin-right:8px;">
+                <button class="btn small" id="zoom50">50%</button>
+                <button class="btn small" id="zoom75">75%</button>
+                <button class="btn small" id="zoom100">100%</button>
+                <button class="btn small" id="zoom125">125%</button>
+                <button class="btn small" id="zoom150">150%</button>
+            </span>
             <button class="btn small" id="shareBtn">🔗 Поделиться</button>
         </div>
         <div class="main-container">
             <div class="left-panel"><div class="table-section">
                 <div class="table-header">
                     <div class="col-status">Статус <button class="add-status-btn" id="manageStatusesBtn">⚙️</button></div>
-                    <div class="col-name">Название</div><div class="col-start">Начало</div><div class="col-end">Конец</div><div class="col-drag"></div>
+                    <div class="col-name">Название</div>
+                    <div class="col-responsible">Отв.</div>
+                    <div class="col-start">Начало</div>
+                    <div class="col-end">Конец</div>
+                    <div class="col-drag"></div>
                 </div>
                 <div class="table-body" id="tableBody"></div>
             </div></div>
@@ -137,24 +147,14 @@
                         feedback: {label:'Фидбэк', shape:'circle', color:'#fbbf24'}
                     };
                 }
-            }
-
-            // Добавляем поле responsible, если его нет
-            function ensureResponsibleField() {
-                state.projects.forEach(p => p.groups.forEach(g => g.tasks.forEach(t => {
-                    if (t.responsible === undefined) t.responsible = '';
-                })));
-                }
-                // Вызовите один раз после load()
-                load();
                 ensureResponsibleField();
-            
+            }
             function initDefault() {
                 state = {
                     projects: [{ id: genId(), name:'Мой проект', groups:[
                         { id:'g1', title:'KV', expanded:true, tasks:[
-                            { id:'t1', name:'Концепт', status:'Завершено', startDate:'2026-05-04', endDate:'2026-05-09', markers:[] },
-                            { id:'t2', name:'Бриф', status:'В работе', startDate:'2026-05-07', endDate:'2026-05-13', markers:[
+                            { id:'t1', name:'Концепт', status:'Завершено', startDate:'2026-05-04', endDate:'2026-05-09', responsible:'', markers:[] },
+                            { id:'t2', name:'Бриф', status:'В работе', startDate:'2026-05-07', endDate:'2026-05-13', responsible:'', markers:[
                                 { id:'m1', startDate:'2026-05-10', endDate:'2026-05-11', type:'control', comment:'Утверждение' }
                             ]}
                         ]}
@@ -168,6 +168,12 @@
                     }
                 };
                 state.activeProjectId = state.projects[0].id;
+            }
+
+            function ensureResponsibleField() {
+                state.projects.forEach(p => p.groups.forEach(g => g.tasks.forEach(t => {
+                    if (t.responsible === undefined) t.responsible = '';
+                })));
             }
 
             // Хелперы...
@@ -200,7 +206,7 @@
             function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
             window.closeModal = closeModal;
 
-         
+            
             // ===================== RENDER =====================
             function renderAll() { renderProjectSelect(); renderTable(); renderGantt(); }
             function renderProjectSelect() {
@@ -213,18 +219,6 @@
                 const proj = getProject();
                 const tbody = document.getElementById('tableBody');
                 if (!proj || proj.groups.length===0) { tbody.innerHTML = '<div style="padding:20px;">Нет данных</div>'; return; }
-                // обновляем заголовок таблицы
-                const header = document.querySelector('.table-header');
-    header.innerHTML = `
-                    <div class="col-status">Статус <button class="add-status-btn" id="manageStatusesBtn">⚙️</button></div>
-                    <div class="col-name">Название</div>
-                    <div class="col-responsible">Отв.</div>
-                    <div class="col-start">Начало</div>
-                    <div class="col-end">Конец</div>
-                    <div class="col-drag"></div>
-                `;
-                // стили для новой колонки (добавьте в CSS, если нужно)
-                // .col-responsible { width:70px; justify-content:center; }
                 let html = '';
                 proj.groups.forEach(g => {
                     html += `<div class="row group${g.expanded?'':' collapsed'}" data-group-id="${g.id}">
@@ -249,9 +243,7 @@
                 });
                 tbody.innerHTML = html;
                 attachTableEvents();
-                // повторно вешаем обработчик на кнопку статусов
-            document.getElementById('manageStatusesBtn').addEventListener('click', manageStatuses);
-        }
+            }
 
             function attachTableEvents() {
                 document.querySelectorAll('.row.group').forEach(row => {
@@ -272,8 +264,7 @@
                     updateTaskDate(this.dataset.id, this.dataset.field, this.value);
                 }));
                 document.querySelectorAll('.responsible-input').forEach(inp => inp.addEventListener('change', function() {
-    const id = this.dataset.id;
-                    updateTaskResponsible(id, this.value);
+                    updateTaskResponsible(this.dataset.id, this.value);
                 }));
 
                 let dragSrcId = null, dragSrcGroup = null, dragSrcIdx = null;
@@ -340,11 +331,11 @@
                 }
                 for(let i=0;i<months.length;i++){ const m=months[i], next=i+1<months.length?months[i+1].startDay:totalDays; monthsHtml+=`<div class="month-label" style="width:${(next-m.startDay)*dayPx}px;" data-month-key="${m.key}">${m.label} <span class="calendar-icon">📅</span></div>`; }
                 monthsHtml+='</div><div class="time-day-row">';
-                for(let d=0;d<totalDays;d++){ const date=new Date(minD); date.setDate(date.getDate()+d); monthsHtml+=`<div class="day-cell${isWeekend(date)?' weekend':''}${date.toDateString()===new Date().toDateString()?' today':''}" style="min-width:32px;">${date.getDate()}</div>`; }
+                for(let d=0;d<totalDays;d++){ const date=new Date(minD); date.setDate(date.getDate()+d); monthsHtml+=`<div class="day-cell${isWeekend(date)?' weekend':''}${date.toDateString()===new Date().toDateString()?' today':''}" style="min-width:${dayPx}px;">${date.getDate()}</div>`; }
                 header.innerHTML=monthsHtml;
                 document.querySelectorAll('.calendar-icon').forEach(icon=>icon.addEventListener('click', e=>{ e.stopPropagation(); openMonthCalendar(icon.parentElement.dataset.monthKey); }));
                 let bodyHtml=`<div style="position:relative; width:${totalWidth}px; min-width:100%;">`;
-                for(let d=0;d<totalDays;d++){ const date=new Date(minD); date.setDate(date.getDate()+d); if(isDayOff(date,proj)) bodyHtml+=`<div class="weekend-strip" style="left:${d*dayPx}px; width:32px;"></div>`; }
+                for(let d=0;d<totalDays;d++){ const date=new Date(minD); date.setDate(date.getDate()+d); if(isDayOff(date,proj)) bodyHtml+=`<div class="weekend-strip" style="left:${d*32}px; width:32px;"></div>`; }
                 const today=new Date(); if(today>=minD && today<=maxD) bodyHtml+=`<div class="today-line" style="left:${Math.ceil((today-minD)/86400000)*dayPx}px;"></div>`;
                 proj.groups.forEach(g=>{
                     bodyHtml+=`<div class="gantt-row group" style="width:${totalWidth}px;"></div>`;
@@ -420,15 +411,14 @@
                 const [year, month] = monthKey.split('-').map(Number);
                 const firstDay = new Date(year, month-1, 1), lastDay = new Date(year, month, 0);
                 let html = `<h3>Выходные (${firstDay.toLocaleDateString('ru-RU',{month:'long',year:'numeric'})})</h3>`;
-    html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;" id="dayGrid">';
+                html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;" id="dayGrid">';
                 for (let d=new Date(firstDay); d<=lastDay; d.setDate(d.getDate()+1)) {
                     const ds = toLocalISO(d), off = isDayOff(ds, proj);
-        html += `<div style="background:${off?'#fecaca':'#e8f5e9'}; padding:4px; text-align:center; cursor:pointer; border-radius:4px; position:relative; z-index:1;" data-date="${ds}" class="day-toggle">${d.getDate()}</div>`;
-    }
-    html += '</div><div class="btn-row"><button class="btn" onclick="closeModal()">Отмена</button></div>';
-    document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay"><div class="modal" onclick="event.stopPropagation()">${html}</div></div>`;
-    // Делегирование клика
-    document.getElementById('dayGrid').addEventListener('click', function(e) {
+                    html += `<div style="background:${off?'#fecaca':'#e8f5e9'}; padding:4px; text-align:center; cursor:pointer; border-radius:4px; position:relative; z-index:1;" data-date="${ds}" class="day-toggle">${d.getDate()}</div>`;
+                }
+                html += '</div><div class="btn-row"><button class="btn" onclick="closeModal()">Отмена</button></div>';
+                document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay"><div class="modal" onclick="event.stopPropagation()">${html}</div></div>`;
+                document.getElementById('dayGrid').addEventListener('click', function(e) {
                     const toggle = e.target.closest('.day-toggle');
                     if (!toggle) return;
                     const ds = toggle.dataset.date;
@@ -456,6 +446,7 @@
                 if (task) { const m = task.markers.find(m=>m.id===markerId); if (m) showMarkerEditModal(taskId, m); }
             }
 
+            // Модалки
             function showMarkerModal(taskId, startDate) {
                 const typesHtml = Object.entries(state.markerTypes).map(([t,o]) => `<option value="${t}">${o.label}</option>`).join('');
                 document.getElementById('modalContainer').innerHTML = `
@@ -564,6 +555,7 @@
                 };
             }
 
+            // CRUD маркеров и полей
             function addMarker(taskId, s, e, type, comment) {
                 const proj = getProject(); if (!proj) return;
                 for (const g of proj.groups) { const task = g.tasks.find(t=>t.id===taskId); if(task){ task.markers.push({id:genId(), startDate:s, endDate:e, type, comment}); save(); renderAll(); return; } }
@@ -602,34 +594,33 @@
             function showAddTaskModal() {
                 const proj = getProject(); if (proj.groups.length===0) { alert('Создайте группу'); return; }
                 const opts = proj.groups.map(g=>`<option value="${g.id}">${escapeHtml(g.title)}</option>`).join('');
-                    document.getElementById('modalContainer').innerHTML = `
-                    <div class="modal-overlay" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()">
-                        <h3>Новая задача</h3>
-                        <label>Название</label><input id="taskName">
-                        <label>Ответственный</label><input id="taskResponsible">
-                        <label>Группа</label><select id="taskGroup">${opts}</select>
-                        <div class="btn-row"><button class="btn" onclick="closeModal()">Отмена</button><button class="btn accent" id="addTaskConfirm">Добавить</button></div>
-                    </div></div>`;
-                    document.getElementById('addTaskConfirm').onclick = () => {
-                        const name = document.getElementById('taskName').value.trim();
-                        const responsible = document.getElementById('taskResponsible').value.trim();
-                        const gid = document.getElementById('taskGroup').value;
-                        if (name && gid) {
-                            const g = proj.groups.find(g=>g.id===gid);
-                            if (g) {
-                                g.tasks.push({
-                                    id: genId(), name, responsible,
-                                    status: 'Не начато',
-                                    startDate: toLocalISO(new Date()),
-                                    endDate: toLocalISO(new Date(Date.now()+5*86400000)),
-                                    markers: []
-                                });
-                                g.expanded = true;
-                                save(); renderAll(); closeModal();
-                            }
+                document.getElementById('modalContainer').innerHTML = `
+                <div class="modal-overlay" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()">
+                    <h3>Новая задача</h3>
+                    <label>Название</label><input id="taskName">
+                    <label>Ответственный</label><input id="taskResponsible">
+                    <label>Группа</label><select id="taskGroup">${opts}</select>
+                    <div class="btn-row"><button class="btn" onclick="closeModal()">Отмена</button><button class="btn accent" id="addTaskConfirm">Добавить</button></div>
+                </div></div>`;
+                document.getElementById('addTaskConfirm').onclick = () => {
+                    const name = document.getElementById('taskName').value.trim();
+                    const responsible = document.getElementById('taskResponsible').value.trim();
+                    const gid = document.getElementById('taskGroup').value;
+                    if (name && gid) {
+                        const g = proj.groups.find(g=>g.id===gid);
+                        if (g) {
+                            g.tasks.push({
+                                id: genId(), name, responsible,
+                                status: 'Не начато',
+                                startDate: toLocalISO(new Date()),
+                                endDate: toLocalISO(new Date(Date.now()+5*86400000)),
+                                markers: []
+                            });
+                            g.expanded = true;
+                            save(); renderAll(); closeModal();
                         }
-                    };
-                }
+                    }
+                };
             }
 
             function newProject() { const n=prompt('Название проекта:'); if(n){ state.projects.push({id:genId(),name:n,groups:[],workingOverrides:{}}); state.activeProjectId=state.projects[state.projects.length-1].id; save(); renderAll(); } }
@@ -642,14 +633,6 @@
                 t.textContent = text; t.style.left = (x+15)+'px'; t.style.top = (y-10)+'px'; t.style.opacity = '1';
             }
             function hideTooltip() { document.getElementById('tooltip').style.opacity = '0'; }
-
-            <span style="display:flex;align-items:center;gap:4px;margin-left:8px;">
-                <button class="btn small" id="zoom50">50%</button>
-                <button class="btn small" id="zoom75">75%</button>
-                <button class="btn small" id="zoom100">100%</button>
-                <button class="btn small" id="zoom125">125%</button>
-                <button class="btn small" id="zoom150">150%</button>
-            </span>
 
             // Поделиться (исправленная версия)
             function shareProject() {
@@ -674,7 +657,6 @@
                             state.activeProjectId = imported.id;
                             save();
                             renderAll();
-                            // Убираем хеш и предотвращаем повторное срабатывание
                             window.removeEventListener('hashchange', importFromHash);
                             window.location.hash = '';
                             setTimeout(() => window.addEventListener('hashchange', importFromHash), 100);
@@ -687,6 +669,12 @@
             window.addEventListener('hashchange', importFromHash);
             if (window.location.hash.startsWith('#project=')) {
                 setTimeout(importFromHash, 100);
+            }
+
+            // Масштаб
+            function setZoom(factor) {
+                dayPx = Math.round(32 * factor);
+                renderAll();
             }
 
             // Обработчики кнопок тулбара
@@ -704,12 +692,7 @@
             document.getElementById('zoom125').addEventListener('click', () => setZoom(1.25));
             document.getElementById('zoom150').addEventListener('click', () => setZoom(1.5));
 
-            function setZoom(factor) {
-                dayPx = Math.round(32 * factor);
-                renderAll();
-            }
-
-            // Глобальные функции для вызова из модалок
+            // Глобальные функции для модалок
             window.manageStatuses = manageStatuses;
             window.showTypeManager = showTypeManager;
             window.showAddTypeForm = showAddTypeForm;
