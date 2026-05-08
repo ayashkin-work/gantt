@@ -18,10 +18,14 @@
         #app { width: 100%; max-width: 1440px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); display: flex; flex-direction: column; height: 92vh; min-width: 1024px; }
         .toolbar { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: #fafbfc; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
         .toolbar .brand { font-weight:700; font-size:15px; margin-right:10px; }
-        .btn { padding: 4px 8px; border-radius:4px; border:1px solid #d0d5dd; background:#fff; cursor:pointer; font-size:11px; font-weight:500; white-space:nowrap; }
+        .btn {
+            padding: 4px 8px; border-radius:4px; border:1px solid #d0d5dd; background:#fff;
+            cursor:pointer; font-size:11px; font-weight:500; white-space:nowrap;
+        }
         .btn:hover { background:#f5f6f8; }
         .btn.accent { background:var(--blue); color:#fff; border-color:var(--blue); }
         .btn.danger { color:#dc2626; border-color:#fca5a5; background:#fef2f2; }
+        .btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
         select.project-switcher { padding:4px 6px; border-radius:4px; border:1px solid #d0d5dd; font-size:11px; background:#fff; max-width:180px; }
 
         .main-container { display:flex; flex:1; overflow:hidden; }
@@ -63,12 +67,13 @@
 
         .gantt-panel { flex:1; display:flex; flex-direction:column; overflow:hidden; }
         .gantt-scroll { display:flex; flex-direction:column; flex:1; overflow:hidden; }
-        .gantt-time-header { background:#f1f3f4; border-bottom:2px solid #d0d5dd; white-space:nowrap; overflow:hidden; height: var(--time-header-height); }
+        .gantt-time-header { background:#f1f3f4; border-bottom:2px solid #d0d5dd; white-space:nowrap; overflow:hidden; height: var(--time-header-height); position: relative; }
         .time-month-row { display:flex; }
         .time-day-row { display:flex; }
         .month-label { display:flex; align-items:center; justify-content:center; font-weight:700; font-size:10px; color:#444; border-right:1px solid #d0d5dd; padding:0 3px; background:#e8eaef; height:20px; flex-shrink:0; position: relative; }
         .month-label .calendar-icon { margin-left:2px; font-size:11px; cursor:pointer; opacity:0.5; }
-        .day-cell { display:inline-flex; align-items:center; justify-content:center; font-size:8px; color:#777; border-right:1px solid #eee; min-width:32px; height:20px; flex-shrink:0; }
+        .day-cell { display:inline-flex; align-items:center; justify-content:center; font-size:8px; color:#777; border-right:1px solid #eee; min-width:32px; height:20px; flex-shrink:0; user-select: none; }
+        .day-cell.selecting { background: #e8f0fe; }
         .gantt-body { flex:1; overflow:auto; position:relative; -webkit-overflow-scrolling: touch; }
         .gantt-row { position:relative; height: var(--row-height); border-bottom:1px solid #f0f1f3; white-space:nowrap; }
         .gantt-row.group { background:#f8f9fa; z-index:1; position:relative; }
@@ -90,11 +95,14 @@
         .today-line { position:absolute; top:0; bottom:0; width:2px; background:#f59e0b; opacity:0.6; z-index:3; }
 
         .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.35); display:flex; align-items:center; justify-content:center; z-index:100; }
-        .modal { background:#fff; border-radius:12px; padding:20px 20px 16px; box-shadow:0 8px 30px rgba(0,0,0,0.2); min-width:320px; max-width:480px; }
+        .modal { background:#fff; border-radius:12px; padding:20px 20px 16px; box-shadow:0 8px 30px rgba(0,0,0,0.2); min-width:320px; max-width:600px; max-height:80vh; overflow-y:auto; }
         .modal h3 { margin-bottom:12px; font-size:15px; }
         .modal label { display:block; font-size:11px; font-weight:600; color:#333; margin-bottom:4px; }
         .modal input, .modal select, .modal textarea { width:100%; padding:8px 10px; border:1px solid #d0d5dd; border-radius:5px; font-size:12px; margin-bottom:10px; font-family:inherit; }
         .modal .btn-row { display:flex; gap:6px; justify-content:flex-end; margin-top:6px; }
+        .modal table { width:100%; border-collapse: collapse; margin-top:8px; }
+        .modal th, .modal td { text-align:left; padding:4px 8px; border-bottom:1px solid #eee; font-size:11px; }
+        .modal th { font-weight:600; background:#f8f9fa; }
 
         .tooltip {
             position: fixed; background: #1f2937; color: #fff; padding: 4px 6px;
@@ -114,6 +122,7 @@
             <button class="btn accent" id="addGroupBtn">+ Группа</button>
             <button class="btn" id="addTaskBtn">+ Задача</button>
             <span style="display:flex;align-items:center;gap:4px;margin-left:auto;margin-right:8px;">
+                <button class="btn small" id="reportModeBtn" title="Режим выделения для отчёта">📋 Отчёт</button>
                 <button class="btn small" id="toggleColumnsBtn" title="Скрыть/показать колонки">👁️</button>
                 <button class="btn small" id="zoom25">25%</button>
                 <button class="btn small" id="zoom50">50%</button>
@@ -160,8 +169,13 @@
                 markerTypes: {}
             };
 
-            // константа высоты строки, синхронизированная с CSS
-            const ROW_HEIGHT = 28;
+            const ROW_HEIGHT = 28;   // Должно совпадать с CSS-переменной --row-height
+
+            // Переменные для режима отчёта
+            let reportMode = false;
+            let reportSelectionStart = null;   // { dayIndex }
+            let reportSelectionEnd = null;
+            let reportActive = false;          // зажат ли мышь в режиме отчёта
 
             function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
             function load() {
@@ -256,7 +270,8 @@
             function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
             window.closeModal = closeModal;
 
-             
+            
+            // ===================== RENDER =====================
             function renderAll() { renderProjectSelect(); renderTable(); renderGantt(); }
             function renderProjectSelect() {
                 const sel = document.getElementById('projectSelect');
@@ -288,7 +303,7 @@
                             <div class="col-start"><input type="text" class="date-input-field short-date" value="${t.startDate ? formatDateShort(t.startDate) : ''}" data-id="${t.id}" data-field="startDate" placeholder="ДД.ММ"></div>
                             <div class="col-end"><input type="text" class="date-input-field short-date" value="${t.endDate ? formatDateShort(t.endDate) : ''}" data-id="${t.id}" data-field="endDate" placeholder="ДД.ММ"></div>
                             <div class="col-drag"><span class="drag-handle">⋮⋮</span></div>
-                            <div class="col-copy"><button class="btn small copy-task-btn" data-task-id="${t.id}" title="Копировать задачу" style="font-size:10px;padding:2px 4px;">📋</button></div>
+                            <div class="col-copy"><button class="btn small copy-task-btn" data-task-id="${t.id}" title="Копировать задачу">📋</button></div>
                         </div>`;
                     });
                 });
@@ -410,9 +425,50 @@
                 }
                 for(let i=0;i<months.length;i++){ const m=months[i], next=i+1<months.length?months[i+1].startDay:totalDays; monthsHtml+=`<div class="month-label" style="width:${(next-m.startDay)*dayPx}px;" data-month-key="${m.key}">${m.label} <span class="calendar-icon">📅</span></div>`; }
                 monthsHtml+='</div><div class="time-day-row">';
-                for(let d=0;d<totalDays;d++){ const date=new Date(minD); date.setDate(date.getDate()+d); monthsHtml+=`<div class="day-cell${isWeekend(date)?' weekend':''}${date.toDateString()===new Date().toDateString()?' today':''}" style="min-width:${dayPx}px;">${date.getDate()}</div>`; }
+                for(let d=0;d<totalDays;d++){
+                    const date=new Date(minD); date.setDate(date.getDate()+d);
+                    monthsHtml+=`<div class="day-cell${isWeekend(date)?' weekend':''}${date.toDateString()===new Date().toDateString()?' today':''}" style="min-width:${dayPx}px;" data-day-index="${d}">${date.getDate()}</div>`;
+                }
                 header.innerHTML=monthsHtml;
                 document.querySelectorAll('.calendar-icon').forEach(icon=>icon.addEventListener('click', e=>{ e.stopPropagation(); openMonthCalendar(icon.parentElement.dataset.monthKey); }));
+
+                // Режим отчёта: выделение мышью по дням
+                const dayCells = document.querySelectorAll('.day-cell');
+                if (reportMode) {
+                    // Активируем выделение
+                    dayCells.forEach(cell => {
+                        cell.style.cursor = 'cell';
+                        cell.addEventListener('mousedown', (e) => {
+                            e.preventDefault();
+                            reportActive = true;
+                            reportSelectionStart = parseInt(cell.dataset.dayIndex);
+                            reportSelectionEnd = reportSelectionStart;
+                            updateSelectionHighlight();
+                        });
+                        cell.addEventListener('mouseenter', () => {
+                            if (reportActive) {
+                                reportSelectionEnd = parseInt(cell.dataset.dayIndex);
+                                updateSelectionHighlight();
+                            }
+                        });
+                    });
+                    document.addEventListener('mouseup', () => {
+                        if (reportActive) {
+                            reportActive = false;
+                            if (reportSelectionStart !== null && reportSelectionEnd !== null) {
+                                const startIdx = Math.min(reportSelectionStart, reportSelectionEnd);
+                                const endIdx = Math.max(reportSelectionStart, reportSelectionEnd);
+                                showReport(minD, startIdx, endIdx);
+                            }
+                        }
+                    });
+                } else {
+                    // Убираем обработчики выделения и сбрасываем подсветку
+                    dayCells.forEach(cell => {
+                        cell.style.cursor = '';
+                        cell.classList.remove('selecting');
+                    });
+                }
 
                 let bodyHtml=`<div style="position:relative; width:${totalWidth}px; min-width:100%;">`;
                 for(let d=0;d<totalDays;d++){
@@ -456,7 +512,7 @@
                                         const size = style.size;
                                         const lineLeft = sx + size/2;
                                         const lineWidth = (ex - size/2) - lineLeft;
-                                        segs+=`<div style="position:absolute; left:${lineLeft}px; top:50%; transform:translateY(-50%); height:3px; width:${lineWidth}px; background:${style.color}; opacity:0.85; z-index:4; border-radius:2px;" data-marker-id="${m.id}" data-task-id="${t.id}"></div>`;
+                                        segs+=`<div style="position:absolute; left:${lineLeft}px; top:50%; transform:translateY(-50%); height:4px; width:${lineWidth}px; background:${style.color}; opacity:0.85; z-index:4; border-radius:2px;" data-marker-id="${m.id}" data-task-id="${t.id}"></div>`;
                                         segs+=`<div class="marker ${m.type||'control'}" style="left:${sx}px; width:${style.size}px; height:${style.size}px; background:${style.color}; border-radius:${style.radius};" data-marker-id="${m.id}" data-task-id="${t.id}"></div>`;
                                         segs+=`<div class="marker ${m.type||'control'}" style="left:${ex}px; width:${style.size}px; height:${style.size}px; background:${style.color}; border-radius:${style.radius};"></div>`;
                                     }
@@ -475,6 +531,7 @@
                 bodyEl.onscroll=()=>{ document.getElementById('timeHeader').scrollLeft=bodyEl.scrollLeft; document.getElementById('tableBody').scrollTop=bodyEl.scrollTop; };
                 document.getElementById('tableBody').onscroll=()=>{ bodyEl.scrollTop=document.getElementById('tableBody').scrollTop; };
                 bodyEl.onclick=e=>{
+                    if (reportMode) return; // в режиме отчёта клик не обрабатываем
                     const marker=e.target.closest('.marker') || e.target.closest('[data-marker-id]');
                     if(marker){ e.stopPropagation(); handleMarkerClick(marker.dataset.taskId, marker.dataset.markerId); return; }
                     const seg=e.target.closest('.bar-segment');
@@ -503,10 +560,10 @@
             function getMarkerStyle(type) {
                 const def = state.markerTypes[type] || state.markerTypes.control;
                 const scale = Math.max(0.3, dayPx / 32);
-                let baseSize = 7;
-                if (def.shape === 'circle') baseSize = 9;
-                else if (def.shape === 'diamond') baseSize = 6;
-                const size = Math.max(4, Math.round(baseSize * scale));
+                let baseSize = 8;
+                if (def.shape === 'circle') baseSize = 10;
+                else if (def.shape === 'diamond') baseSize = 7;
+                const size = Math.max(5, Math.round(baseSize * scale));
                 let radius = '2px';
                 if (def.shape === 'circle') radius = '50%';
                 else if (def.shape === 'diamond') radius = '2px';
@@ -554,6 +611,123 @@
                 if (task) { const m = task.markers.find(m=>m.id===markerId); if (m) showMarkerEditModal(taskId, m); }
             }
 
+            // ===================== ФУНКЦИИ ОТЧЁТА =====================
+            function updateSelectionHighlight() {
+                const cells = document.querySelectorAll('.day-cell');
+                const start = reportSelectionStart, end = reportSelectionEnd;
+                if (start === null || end === null) return;
+                const minIdx = Math.min(start, end);
+                const maxIdx = Math.max(start, end);
+                cells.forEach(cell => {
+                    const idx = parseInt(cell.dataset.dayIndex);
+                    if (idx >= minIdx && idx <= maxIdx) {
+                        cell.classList.add('selecting');
+                    } else {
+                        cell.classList.remove('selecting');
+                    }
+                });
+            }
+
+            function showReport(minDate, startIdx, endIdx) {
+                const proj = getProject();
+                if (!proj) return;
+                const selStart = new Date(minDate); selStart.setDate(selStart.getDate() + startIdx);
+                const selEnd = new Date(minDate); selEnd.setDate(selEnd.getDate() + endIdx);
+                const selStartISO = toLocalISO(selStart);
+                const selEndISO = toLocalISO(selEnd);
+
+                const results = [];
+                proj.groups.forEach(group => {
+                    group.tasks.forEach(task => {
+                        // Проверяем пересечение интервала задачи с выделенным периодом
+                        if (!task.startDate || !task.endDate) return;
+                        const taskStart = new Date(task.startDate);
+                        const taskEnd = new Date(task.endDate);
+                        if (taskEnd < selStart || taskStart > selEnd) return; // нет пересечения
+
+                        const entry = {
+                            group: group.title,
+                            name: task.name,
+                            start: formatDateShort(task.startDate),
+                            end: formatDateShort(task.endDate),
+                            status: task.status,
+                            markers: []
+                        };
+
+                        // Собираем маркеры, попадающие в выделенный период
+                        task.markers.forEach(m => {
+                            const mStart = new Date(m.startDate);
+                            const mEnd = new Date(m.endDate || m.startDate);
+                            if (mEnd < selStart || mStart > selEnd) return;
+                            entry.markers.push({
+                                type: state.markerTypes[m.type]?.label || m.type,
+                                start: formatDateShort(m.startDate),
+                                end: m.startDate !== m.endDate ? formatDateShort(m.endDate) : null,
+                                comment: m.comment || ''
+                            });
+                        });
+
+                        results.push(entry);
+                    });
+                });
+
+                // Рендерим модальное окно с таблицей
+                let html = `<h3>📋 Отчёт за ${formatDateShort(selStartISO)} – ${formatDateShort(selEndISO)}</h3>`;
+                if (results.length === 0) {
+                    html += '<p>Нет задач в выбранном диапазоне.</p>';
+                } else {
+                    html += `<table><thead><tr>
+                        <th>Группа</th><th>Задача</th><th>Даты</th><th>Статус</th><th>Маркеры</th>
+                    </tr></thead><tbody>`;
+                    results.forEach(r => {
+                        const markersStr = r.markers.map(m => {
+                            return `${m.type}${m.comment ? ': ' + m.comment : ''} (${m.start}${m.end ? '–' + m.end : ''})`;
+                        }).join('; ');
+                        html += `<tr>
+                            <td>${escapeHtml(r.group)}</td>
+                            <td>${escapeHtml(r.name)}</td>
+                            <td>${r.start} – ${r.end}</td>
+                            <td>${escapeHtml(r.status)}</td>
+                            <td>${markersStr || '—'}</td>
+                        </tr>`;
+                    });
+                    html += '</tbody></table>';
+                }
+                html += `<div class="btn-row"><button class="btn" onclick="closeModal()">Закрыть</button></div>`;
+                document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay"><div class="modal" onclick="event.stopPropagation()">${html}</div></div>`;
+
+                // Сбрасываем выделение после показа отчёта
+                reportSelectionStart = null;
+                reportSelectionEnd = null;
+                updateSelectionHighlight();
+            }
+
+            function toggleReportMode() {
+                reportMode = !reportMode;
+                const btn = document.getElementById('reportModeBtn');
+                if (reportMode) {
+                    btn.classList.add('active');
+                    btn.textContent = '📋 Отчёт (активен)';
+                } else {
+                    btn.classList.remove('active');
+                    btn.textContent = '📋 Отчёт';
+                    reportSelectionStart = null;
+                    reportSelectionEnd = null;
+                    updateSelectionHighlight();
+                }
+                renderAll();
+            }
+
+            // Обработчик кнопки отчёта
+            document.getElementById('reportModeBtn').addEventListener('click', toggleReportMode);
+            // Выход из режима отчёта по Esc
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && reportMode) {
+                    toggleReportMode();
+                }
+            });
+
+            // ===================== МОДАЛКИ И CRUD (без изменений) =====================
             function showMarkerModal(taskId, startDate) {
                 const typesHtml = Object.entries(state.markerTypes).map(([t,o]) => `<option value="${t}">${o.label}</option>`).join('');
                 document.getElementById('modalContainer').innerHTML = `
@@ -749,12 +923,22 @@
             function hideTooltip() { document.getElementById('tooltip').style.opacity = '0'; }
 
             // Поделиться (LZ-String)
-            function shareProject() {
+            async function shareProject() {
                 const proj = getProject(); if (!proj) { alert('Нет активного проекта'); return; }
                 const data = JSON.stringify(proj);
                 const compressed = LZString.compressToEncodedURIComponent(data);
-                const url = window.location.origin + window.location.pathname + '#project=' + compressed;
-                navigator.clipboard.writeText(url).then(() => alert('Ссылка скопирована!'));
+                const longUrl = window.location.origin + window.location.pathname + '#project=' + compressed;
+                try {
+                    const response = await fetch('https://is.gd/create.php?format=simple&url=' + encodeURIComponent(longUrl));
+                    const shortUrl = await response.text();
+                    if (shortUrl && shortUrl.startsWith('http')) {
+                        navigator.clipboard.writeText(shortUrl).then(() => alert('Короткая ссылка скопирована!'));
+                    } else {
+                        navigator.clipboard.writeText(longUrl).then(() => alert('Ссылка скопирована (не удалось сократить)'));
+                    }
+                } catch(e) {
+                    navigator.clipboard.writeText(longUrl).then(() => alert('Ссылка скопирована (без сокращения)'));
+                }
             }
 
             function importFromHash() {
@@ -819,3 +1003,5 @@
     </script>
 </body>
 </html>
+
+             
