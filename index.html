@@ -131,6 +131,7 @@
                 <button class="btn small" id="applyZoom">Применить</button>
                 <button class="btn small" id="zoom150">150%</button>
             </span>
+            <button class="btn small" id="reportModeBtn">📋 Отчёт</button>
             <button class="btn small" id="shareBtn">🔗 Поделиться</button>
         </div>
         <div class="main-container">
@@ -423,7 +424,10 @@
                     if(!months.find(m=>m.key===key)) months.push({key, label:cursor.toLocaleDateString('ru-RU',{month:'long',year:'numeric'}), startDay:Math.ceil((cursor-minD)/86400000)});
                     cursor.setDate(cursor.getDate()+1);
                 }
-                for(let i=0;i<months.length;i++){ const m=months[i], next=i+1<months.length?months[i+1].startDay:totalDays; monthsHtml+=`<div class="month-label" style="width:${(next-m.startDay)*dayPx}px;" data-month-key="${m.key}">${m.label} <span class="calendar-icon">📅</span></div>`; }
+                for(let i=0;i<months.length;i++){
+                    const m=months[i], nextStart=i+1<months.length?months[i+1].startDay:totalDays;
+                    monthsHtml+=`<div class="month-label" style="width:${(nextStart-m.startDay)*dayPx}px;" data-month-key="${m.key}" data-month-start="${m.startDay}" data-month-end="${nextStart-1}">${m.label} <span class="calendar-icon">📅</span></div>`;
+                }
                 monthsHtml+='</div><div class="time-day-row">';
                 for(let d=0;d<totalDays;d++){
                     const date=new Date(minD); date.setDate(date.getDate()+d);
@@ -432,10 +436,11 @@
                 header.innerHTML=monthsHtml;
                 document.querySelectorAll('.calendar-icon').forEach(icon=>icon.addEventListener('click', e=>{ e.stopPropagation(); openMonthCalendar(icon.parentElement.dataset.monthKey); }));
 
-                // Режим отчёта: выделение мышью по дням
+                // Режим отчёта
                 const dayCells = document.querySelectorAll('.day-cell');
+                const monthLabels = document.querySelectorAll('.month-label');
                 if (reportMode) {
-                    // Активируем выделение
+                    // Выделение мышью по дням
                     dayCells.forEach(cell => {
                         cell.style.cursor = 'cell';
                         cell.addEventListener('mousedown', (e) => {
@@ -444,6 +449,7 @@
                             reportSelectionStart = parseInt(cell.dataset.dayIndex);
                             reportSelectionEnd = reportSelectionStart;
                             updateSelectionHighlight();
+                            startAutoScroll();
                         });
                         cell.addEventListener('mouseenter', () => {
                             if (reportActive) {
@@ -452,9 +458,22 @@
                             }
                         });
                     });
+
+                    // Клик по месяцу – выделение всего месяца
+                    monthLabels.forEach(label => {
+                        label.style.cursor = 'pointer';
+                        label.addEventListener('click', (e) => {
+                            if (e.target.closest('.calendar-icon')) return; // не обрабатываем клик по иконке календаря
+                            const startIdx = parseInt(label.dataset.monthStart);
+                            const endIdx = parseInt(label.dataset.monthEnd);
+                            showReport(minD, startIdx, endIdx);
+                        });
+                    });
+
                     document.addEventListener('mouseup', () => {
                         if (reportActive) {
                             reportActive = false;
+                            stopAutoScroll();
                             if (reportSelectionStart !== null && reportSelectionEnd !== null) {
                                 const startIdx = Math.min(reportSelectionStart, reportSelectionEnd);
                                 const endIdx = Math.max(reportSelectionStart, reportSelectionEnd);
@@ -463,11 +482,11 @@
                         }
                     });
                 } else {
-                    // Убираем обработчики выделения и сбрасываем подсветку
                     dayCells.forEach(cell => {
                         cell.style.cursor = '';
                         cell.classList.remove('selecting');
                     });
+                    monthLabels.forEach(label => label.style.cursor = '');
                 }
 
                 let bodyHtml=`<div style="position:relative; width:${totalWidth}px; min-width:100%;">`;
@@ -531,7 +550,7 @@
                 bodyEl.onscroll=()=>{ document.getElementById('timeHeader').scrollLeft=bodyEl.scrollLeft; document.getElementById('tableBody').scrollTop=bodyEl.scrollTop; };
                 document.getElementById('tableBody').onscroll=()=>{ bodyEl.scrollTop=document.getElementById('tableBody').scrollTop; };
                 bodyEl.onclick=e=>{
-                    if (reportMode) return; // в режиме отчёта клик не обрабатываем
+                    if (reportMode) return;
                     const marker=e.target.closest('.marker') || e.target.closest('[data-marker-id]');
                     if(marker){ e.stopPropagation(); handleMarkerClick(marker.dataset.taskId, marker.dataset.markerId); return; }
                     const seg=e.target.closest('.bar-segment');
@@ -611,7 +630,7 @@
                 if (task) { const m = task.markers.find(m=>m.id===markerId); if (m) showMarkerEditModal(taskId, m); }
             }
 
-            // ===================== ФУНКЦИИ ОТЧЁТА =====================
+            // ===================== ОТЧЁТЫ =====================
             function updateSelectionHighlight() {
                 const cells = document.querySelectorAll('.day-cell');
                 const start = reportSelectionStart, end = reportSelectionEnd;
@@ -639,11 +658,10 @@
                 const results = [];
                 proj.groups.forEach(group => {
                     group.tasks.forEach(task => {
-                        // Проверяем пересечение интервала задачи с выделенным периодом
                         if (!task.startDate || !task.endDate) return;
                         const taskStart = new Date(task.startDate);
                         const taskEnd = new Date(task.endDate);
-                        if (taskEnd < selStart || taskStart > selEnd) return; // нет пересечения
+                        if (taskEnd < selStart || taskStart > selEnd) return;
 
                         const entry = {
                             group: group.title,
@@ -654,7 +672,6 @@
                             markers: []
                         };
 
-                        // Собираем маркеры, попадающие в выделенный период
                         task.markers.forEach(m => {
                             const mStart = new Date(m.startDate);
                             const mEnd = new Date(m.endDate || m.startDate);
@@ -671,32 +688,20 @@
                     });
                 });
 
-                // Рендерим модальное окно с таблицей
                 let html = `<h3>📋 Отчёт за ${formatDateShort(selStartISO)} – ${formatDateShort(selEndISO)}</h3>`;
                 if (results.length === 0) {
                     html += '<p>Нет задач в выбранном диапазоне.</p>';
                 } else {
-                    html += `<table><thead><tr>
-                        <th>Группа</th><th>Задача</th><th>Даты</th><th>Статус</th><th>Маркеры</th>
-                    </tr></thead><tbody>`;
+                    html += `<table><thead><tr><th>Группа</th><th>Задача</th><th>Даты</th><th>Статус</th><th>Маркеры</th></tr></thead><tbody>`;
                     results.forEach(r => {
-                        const markersStr = r.markers.map(m => {
-                            return `${m.type}${m.comment ? ': ' + m.comment : ''} (${m.start}${m.end ? '–' + m.end : ''})`;
-                        }).join('; ');
-                        html += `<tr>
-                            <td>${escapeHtml(r.group)}</td>
-                            <td>${escapeHtml(r.name)}</td>
-                            <td>${r.start} – ${r.end}</td>
-                            <td>${escapeHtml(r.status)}</td>
-                            <td>${markersStr || '—'}</td>
-                        </tr>`;
+                        const markersStr = r.markers.map(m => `${m.type}${m.comment ? ': ' + m.comment : ''} (${m.start}${m.end ? '–' + m.end : ''})`).join('; ');
+                        html += `<tr><td>${escapeHtml(r.group)}</td><td>${escapeHtml(r.name)}</td><td>${r.start} – ${r.end}</td><td>${escapeHtml(r.status)}</td><td>${markersStr || '—'}</td></tr>`;
                     });
                     html += '</tbody></table>';
                 }
                 html += `<div class="btn-row"><button class="btn" onclick="closeModal()">Закрыть</button></div>`;
                 document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay"><div class="modal" onclick="event.stopPropagation()">${html}</div></div>`;
 
-                // Сбрасываем выделение после показа отчёта
                 reportSelectionStart = null;
                 reportSelectionEnd = null;
                 updateSelectionHighlight();
@@ -718,16 +723,44 @@
                 renderAll();
             }
 
-            // Обработчик кнопки отчёта
+            // Автоскролл при выделении
+            let scrollInterval = null;
+            function startAutoScroll() {
+                const ganttBody = document.getElementById('ganttBody');
+                scrollInterval = setInterval(() => {
+                    const rect = ganttBody.getBoundingClientRect();
+                    const mouseX = lastMouseX;
+                    if (mouseX === null) return;
+                    const edgeThreshold = 50;
+                    if (mouseX < rect.left + edgeThreshold) {
+                        ganttBody.scrollLeft -= 10;
+                    } else if (mouseX > rect.right - edgeThreshold) {
+                        ganttBody.scrollLeft += 10;
+                    }
+                }, 30);
+                document.addEventListener('mousemove', (e) => {
+                    lastMouseX = e.clientX;
+                });
+            }
+            function stopAutoScroll() {
+                clearInterval(scrollInterval);
+                scrollInterval = null;
+                lastMouseX = null;
+            }
+
             document.getElementById('reportModeBtn').addEventListener('click', toggleReportMode);
-            // Выход из режима отчёта по Esc
             document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape' && reportMode) {
-                    toggleReportMode();
-                }
+                if (e.key === 'Escape' && reportMode) toggleReportMode();
             });
 
-            // ===================== МОДАЛКИ И CRUD (без изменений) =====================
+            // ... (остальные функции без изменений)
+                         let reportMode = false;
+            let reportActive = false;
+            let reportSelectionStart = null;
+            let reportSelectionEnd = null;
+            let lastMouseX = null;
+
+            // Модалки
             function showMarkerModal(taskId, startDate) {
                 const typesHtml = Object.entries(state.markerTypes).map(([t,o]) => `<option value="${t}">${o.label}</option>`).join('');
                 document.getElementById('modalContainer').innerHTML = `
@@ -922,7 +955,7 @@
             }
             function hideTooltip() { document.getElementById('tooltip').style.opacity = '0'; }
 
-            // Поделиться (LZ-String)
+            // Шэринг (LZ-String + сокращалка is.gd)
             async function shareProject() {
                 const proj = getProject(); if (!proj) { alert('Нет активного проекта'); return; }
                 const data = JSON.stringify(proj);
@@ -974,6 +1007,7 @@
 
             function toggleColumns() { document.getElementById('leftPanel').classList.toggle('hide-extra'); }
 
+            // Обработчики кнопок
             document.getElementById('addGroupBtn').addEventListener('click', addGroup);
             document.getElementById('addTaskBtn').addEventListener('click', showAddTaskModal);
             document.getElementById('manageStatusesBtn').addEventListener('click', manageStatuses);
@@ -1003,5 +1037,3 @@
     </script>
 </body>
 </html>
-
-             
