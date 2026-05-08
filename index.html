@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Гант – компактная версия</title>
+    <title>Гант – финальная версия</title>
     <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
     <style>
         :root {
             --blue: #2563eb; --blue-bar: #3b82f6; --green-bar: #10b981;
-            --row-height: 28px;           /* уменьшено с 36px */
-            --time-header-height: 40px;   /* уменьшено с 48px */
+            --row-height: 28px;
+            --time-header-height: 40px;
             --border: #e0e0e0;
             --control: #f59e0b; --delivery: #ef4444; --feedback: #fbbf24;
         }
@@ -18,10 +18,7 @@
         #app { width: 100%; max-width: 1440px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); display: flex; flex-direction: column; height: 92vh; min-width: 1024px; }
         .toolbar { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: #fafbfc; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
         .toolbar .brand { font-weight:700; font-size:15px; margin-right:10px; }
-        .btn {
-            padding: 4px 8px; border-radius:4px; border:1px solid #d0d5dd; background:#fff;
-            cursor:pointer; font-size:11px; font-weight:500; white-space:nowrap;
-        }
+        .btn { padding: 4px 8px; border-radius:4px; border:1px solid #d0d5dd; background:#fff; cursor:pointer; font-size:11px; font-weight:500; white-space:nowrap; }
         .btn:hover { background:#f5f6f8; }
         .btn.accent { background:var(--blue); color:#fff; border-color:var(--blue); }
         .btn.danger { color:#dc2626; border-color:#fca5a5; background:#fef2f2; }
@@ -131,7 +128,6 @@
                 <button class="btn small" id="applyZoom">Применить</button>
                 <button class="btn small" id="zoom150">150%</button>
             </span>
-            <button class="btn small" id="reportModeBtn">📋 Отчёт</button>
             <button class="btn small" id="shareBtn">🔗 Поделиться</button>
         </div>
         <div class="main-container">
@@ -170,13 +166,13 @@
                 markerTypes: {}
             };
 
-            const ROW_HEIGHT = 28;   // Должно совпадать с CSS-переменной --row-height
+            const ROW_HEIGHT = 28;
 
-            // Переменные для режима отчёта
             let reportMode = false;
-            let reportSelectionStart = null;   // { dayIndex }
+            let reportActive = false;
+            let reportSelectionStart = null;
             let reportSelectionEnd = null;
-            let reportActive = false;          // зажат ли мышь в режиме отчёта
+            let lastMouseX = null;
 
             function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
             function load() {
@@ -271,8 +267,7 @@
             function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
             window.closeModal = closeModal;
 
-            
-            // ===================== RENDER =====================
+                        // ===================== RENDER =====================
             function renderAll() { renderProjectSelect(); renderTable(); renderGantt(); }
             function renderProjectSelect() {
                 const sel = document.getElementById('projectSelect');
@@ -630,7 +625,7 @@
                 if (task) { const m = task.markers.find(m=>m.id===markerId); if (m) showMarkerEditModal(taskId, m); }
             }
 
-            // ===================== ОТЧЁТЫ =====================
+            // ===================== ОТЧЁТ =====================
             function updateSelectionHighlight() {
                 const cells = document.querySelectorAll('.day-cell');
                 const start = reportSelectionStart, end = reportSelectionEnd;
@@ -723,7 +718,6 @@
                 renderAll();
             }
 
-            // Автоскролл при выделении
             let scrollInterval = null;
             function startAutoScroll() {
                 const ganttBody = document.getElementById('ganttBody');
@@ -738,9 +732,7 @@
                         ganttBody.scrollLeft += 10;
                     }
                 }, 30);
-                document.addEventListener('mousemove', (e) => {
-                    lastMouseX = e.clientX;
-                });
+                document.addEventListener('mousemove', (e) => { lastMouseX = e.clientX; });
             }
             function stopAutoScroll() {
                 clearInterval(scrollInterval);
@@ -749,18 +741,9 @@
             }
 
             document.getElementById('reportModeBtn').addEventListener('click', toggleReportMode);
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape' && reportMode) toggleReportMode();
-            });
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && reportMode) toggleReportMode(); });
 
-            // ... (остальные функции без изменений)
-                         let reportMode = false;
-            let reportActive = false;
-            let reportSelectionStart = null;
-            let reportSelectionEnd = null;
-            let lastMouseX = null;
-
-            // Модалки
+            // ===================== МОДАЛКИ И CRUD =====================
             function showMarkerModal(taskId, startDate) {
                 const typesHtml = Object.entries(state.markerTypes).map(([t,o]) => `<option value="${t}">${o.label}</option>`).join('');
                 document.getElementById('modalContainer').innerHTML = `
@@ -1037,3 +1020,4 @@
     </script>
 </body>
 </html>
+            
